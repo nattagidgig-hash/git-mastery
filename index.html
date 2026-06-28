@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git Mastery — เรียน Git ระดับ Professional สำหรับยุค AI</title>
+  <meta name="description" content="หลักสูตร Git แบบ interactive: mental model, commit, branch, merge, rebase, conflict, worktree และ AI coding workflow — พร้อม terminal simulator, git graph และ quiz" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <a class="brand" href="index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 ค้นหา <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <main id="main">
+    <section class="hero">
+      <span class="badge primary" style="margin-bottom:var(--s-4)">หลักสูตร Interactive · 13 บท</span>
+      <h1>เชี่ยวชาญ <span class="gradient-text">Git</span> แบบที่ใช้จริง<br>ในยุค AI Coding</h1>
+      <p class="lead">เรียนตั้งแต่ mental model ไปจนถึง rebase, conflict และ worktree — พร้อม terminal simulator, git graph visualizer และ quiz ในทุกบท ไม่ต้องติดตั้งอะไร เปิดแล้วเรียนได้เลย</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" href="chapters/01-mental-model.html">เริ่มเรียนบทที่ 1 →</a>
+        <a class="btn btn-ghost" href="#roadmap">ดู Roadmap</a>
+      </div>
+      <div style="max-width:380px;margin:var(--s-7) auto 0" data-progress-big></div>
+    </section>
+
+    <section class="section" id="roadmap">
+      <div class="section-head">
+        <h2>Learning Path</h2>
+        <p>ลำดับการเรียนที่ออกแบบให้ต่อยอดกันทีละขั้น — จากพื้นฐานสู่ขั้นสูง</p>
+      </div>
+      <ul class="path" data-path></ul>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>ทุกบทเรียน</h2>
+        <p>คลิกเพื่อเข้าบท · ความคืบหน้าถูกบันทึกในเครื่องคุณอัตโนมัติ</p>
+      </div>
+      <div class="card-grid" data-cards></div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <h2>ทำไมต้องเรียนแบบนี้</h2>
+        <p>คุณไม่ได้แค่ท่องคำสั่ง — แต่ฝึก <strong>workflow ของ Full-stack ยุค AI</strong> ครบวงจร</p>
+      </div>
+      <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr));max-width:880px;margin-inline:auto;text-align:center">
+        <div class="card"><div style="font-size:1.6rem">📋</div><strong>Specification</strong></div>
+        <div class="card"><div style="font-size:1.6rem">🏗️</div><strong>Architecture</strong></div>
+        <div class="card"><div style="font-size:1.6rem">🗺️</div><strong>Planning</strong></div>
+        <div class="card"><div style="font-size:1.6rem">⌨️</div><strong>Implementation</strong></div>
+        <div class="card"><div style="font-size:1.6rem">🔍</div><strong>Review</strong></div>
+        <div class="card"><div style="font-size:1.6rem">♻️</div><strong>Refactor</strong></div>
+        <div class="card"><div style="font-size:1.6rem">🚀</div><strong>Release</strong></div>
+      </div>
+      <p class="center muted mt-6">ทักษะเหล่านี้สำคัญกว่าการจำ syntax — และ Git คือเครื่องมือที่ร้อยมันเข้าด้วยกัน</p>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Git Mastery · สร้างด้วย vanilla HTML/CSS/JS — ไม่มี framework ไม่มี build step</p>
+    <p class="muted" style="font-size:var(--text-xs)">กด <span class="kbd">/</span> หรือ <span class="kbd">Ctrl</span>+<span class="kbd">K</span> เพื่อค้นหาได้ทุกหน้า</p>
+  </footer>
+
+  <script src="assets/js/app.js"></script>
+  <script>GitMastery.init({ page: "landing" });</script>
+</body>
+</html>
