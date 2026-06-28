@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 11 · Reflog — Git Mastery</title>
+  <meta name="description" content="git reflog: บันทึกทุกที่ที่ HEAD เคยอยู่ ตาข่ายนิรภัยกู้ commit ที่หายหลัง reset --hard, rebase หรือลบ branch ผิด" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 11</span>
+          <h1>Reflog</h1>
+          <p class="lead muted">เผลอ <code>reset --hard</code>, rebase พัง, หรือลบ branch ผิด แล้วงานหายเป็นสิบ commit? อย่าเพิ่งตกใจ — Git จดทุกก้าวของ HEAD ไว้ใน reflog เกือบทุกอย่าง "กู้ได้" ถ้ารู้จักเครื่องมือนี้</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า <strong>reflog</strong> คือบันทึกประวัติทุกตำแหน่งที่ <strong>HEAD</strong> เคยอยู่</li>
+              <li>อ่านรูปแบบ <code>HEAD@{n}</code> และหา hash ของ commit ที่ "หาย" ได้</li>
+              <li>กู้คืนงานด้วย <code>git reset --hard HEAD@{n}</code> หรือ <code>git checkout &lt;hash&gt;</code> + สร้าง branch ใหม่</li>
+              <li>รู้ขอบเขตของ reflog: <strong>local เท่านั้น</strong> และ entry หมดอายุ (~90 วัน)</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. reflog คืออะไร</h2>
+        <p>ทุกครั้งที่ <code>HEAD</code> ขยับ — ไม่ว่าจะ commit, <code>switch</code>/<code>checkout</code>, <code>reset</code>, <code>rebase</code>, หรือ <code>merge</code> — Git จะจดบรรทัดหนึ่งลงใน <strong>reference log</strong> (reflog) ว่า "HEAD ย้ายจากไหนไปไหน เพราะคำสั่งอะไร" reflog จึงเป็นเหมือน <strong>กล้องวงจรปิด</strong> ของ repo คุณ: แม้ commit จะหลุดออกจากทุก branch จนมองไม่เห็นใน <code>git log</code> ตัว commit object ก็ยังอยู่ใน <code>.git</code> และ reflog ยังเก็บ hash ของมันไว้ให้คุณเดินกลับไปหาได้</p>
+        <div class="callout note"><span class="ico">💡</span><div><strong>กุญแจสำคัญ:</strong> <code>git log</code> เดินตามสายโซ่ parent ของ branch ปัจจุบัน ส่วน <code>git reflog</code> เดินตาม <em>ลำดับเวลา</em> ที่ HEAD เคยขยับ — มันเห็น commit ที่ <code>git log</code> มองไม่เห็นแล้ว</div></div>
+
+        <h2>2. รูปแบบ HEAD@{n}</h2>
+        <p>reflog ใช้พิกัดแบบ <code>HEAD@{n}</code> โดย <code>n</code> นับ <strong>ถอยหลังจากปัจจุบัน</strong>: <code>HEAD@{0}</code> คือตำแหน่งล่าสุด, <code>HEAD@{1}</code> คือก่อนหน้านั้นหนึ่งก้าว ไปเรื่อย ๆ ลองรัน <code>git reflog</code> ดูผลแบบนี้:</p>
+        <pre><code><span class="tok-cmd">git</span> reflog
+<span class="tok-out">e3a9f12 HEAD@{0}: reset: moving to HEAD~2</span>
+<span class="tok-out">a7c4d90 HEAD@{1}: commit: add payment validation</span>
+<span class="tok-out">b1f8e23 HEAD@{2}: commit: add cart total</span>
+<span class="tok-out">e3a9f12 HEAD@{3}: commit: setup checkout page</span>
+<span class="tok-out">9d2c0a8 HEAD@{4}: checkout: moving from main to feature</span></code></pre>
+        <p>แต่ละบรรทัดบอกครบ: hash ปลายทาง, พิกัด <code>HEAD@{n}</code>, ชนิดของการกระทำ (<code>commit</code>, <code>reset</code>, <code>checkout</code>...), และข้อความอธิบาย จากตัวอย่างจะเห็นว่า <code>HEAD@{0}</code> เป็นผลของ <code>reset</code> ที่ย้อนกลับไปยัง commit เก่า — แปลว่า commit <code>a7c4d90</code> ("add payment validation") ตอนนี้ไม่อยู่บน branch แล้ว แต่ hash ยังอยู่ตรงนี้</p>
+        <div class="callout note"><span class="ico">📝</span><div>นอกจาก <code>HEAD@{n}</code> แล้ว reference อื่นก็มี reflog ของตัวเองด้วย เช่น <code>git reflog show main</code> ดูเฉพาะการขยับของ branch <code>main</code></div></div>
+
+        <h2>3. สถานการณ์: reset --hard ทำ commit หาย</h2>
+        <p>มาดูภาพว่า commit "หาย" ได้ยังไง สมมติคุณอยู่ที่ <code>c3</code> แล้วเผลอรัน <code>git reset --hard HEAD~2</code> เพื่อย้อนไป <code>a1</code> — branch <code>main</code> ขยับกลับ แต่ <code>b2</code> และ <code>c3</code> ยังลอยอยู่ใน <code>.git</code> โดยไม่มี branch ชี้ (เรียก <em>dangling commits</em>)</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ก่อนพลาด: main ชี้ c3 งานครบ",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"setup checkout"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"add cart total"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"add payment validation"}
+             ]},
+            {"head":"main","caption":"หลัง reset --hard HEAD~2: main ถอยไป a1 — b2,c3 หลุด แต่ยังอยู่ใน .git (reflog เก็บ hash ไว้)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"setup checkout"},
+               {"id":"b2","branch":"lost","parents":["a1"],"msg":"add cart total (dangling)"},
+               {"id":"c3","branch":"lost","parents":["b2"],"msg":"add payment validation (dangling)"}
+             ]}
+          ]
+          </script>
+        </div>
+        <p>ตอนนี้ <code>git log</code> เห็นแค่ <code>a1</code> เหมือนงานหายไปหมด — แต่ <code>git reflog</code> จะยังโชว์ hash ของ <code>c3</code> ให้</p>
+        <div class="callout warn"><span class="ico">⚠️</span><div><code>git reset --hard</code> ทำสองอย่างพร้อมกัน: ย้าย branch <strong>และ</strong> ล้าง working directory ทิ้ง การเปลี่ยนแปลงที่ยัง <strong>ไม่เคย commit</strong> (uncommitted) จะหายจริง ๆ และ reflog ช่วยไม่ได้ — reflog กู้ได้เฉพาะสิ่งที่ "เคยเป็น commit" เท่านั้น</div></div>
+
+        <h2>4. กู้คืน: สองวิธี</h2>
+        <p>เมื่อหา hash จาก reflog เจอแล้ว มีสองทางหลักในการกู้:</p>
+
+        <h3>วิธี A — reset --hard กลับไปที่จุดนั้น (ย้าย branch ปัจจุบันกลับ)</h3>
+        <pre><code><span class="tok-cmd">git</span> reflog                         <span class="tok-cmt"># หา HEAD@{n} ของ commit ที่ต้องการ</span>
+<span class="tok-cmd">git</span> reset <span class="tok-flag">--hard</span> HEAD@{1}        <span class="tok-cmt"># ดึง main กลับไปที่ c3 อีกครั้ง</span>
+<span class="tok-cmd">git</span> reset <span class="tok-flag">--hard</span> a7c4d90        <span class="tok-cmt"># หรือใช้ hash ตรง ๆ ก็ได้ ผลเหมือนกัน</span></code></pre>
+        <p>เหมาะเมื่อคุณ <strong>แน่ใจ</strong> ว่าอยากให้ branch ปัจจุบันกลับไปอยู่จุดนั้นเป๊ะ ๆ</p>
+
+        <h3>วิธี B — checkout hash แล้วสร้าง branch ใหม่ (ปลอดภัยกว่า)</h3>
+        <pre><code><span class="tok-cmd">git</span> checkout a7c4d90              <span class="tok-cmt"># ไปยืนที่ commit นั้น (detached HEAD)</span>
+<span class="tok-cmd">git</span> switch <span class="tok-flag">-c</span> rescue-work        <span class="tok-cmt"># ปักธง branch ใหม่ตรงนี้ ไม่แตะ main</span>
+<span class="tok-cmt"># ตอนนี้ commit ที่หายถูก "ผูก" กับ branch rescue-work แล้ว ปลอดภัย</span></code></pre>
+        <div class="callout tip"><span class="ico">✅</span><div><strong>ก่อนตกใจว่างานหาย ลอง <code>git reflog</code> ก่อนเสมอ</strong> ถ้าสิ่งที่หายเคยถูก commit แล้ว มันแทบไม่เคยหายจริง วิธี B ปลอดภัยที่สุด เพราะแค่ "ปักธงใหม่" โดยไม่เขียนทับ branch ปัจจุบัน — ตรวจดูให้พอใจก่อนค่อย merge กลับ</div></div>
+
+        <h2>5. ตารางเปรียบเทียบ: log vs reflog</h2>
+        <table>
+          <thead><tr><th></th><th><code>git log</code></th><th><code>git reflog</code></th></tr></thead>
+          <tbody>
+            <tr><td><strong>เดินตามอะไร</strong></td><td>สายโซ่ parent ของ branch</td><td>ลำดับเวลาที่ HEAD ขยับ</td></tr>
+            <tr><td><strong>เห็น dangling commit ไหม</strong></td><td>ไม่เห็น</td><td>เห็น (ตราบใดที่ยังไม่หมดอายุ)</td></tr>
+            <tr><td><strong>แชร์ขึ้น remote ไหม</strong></td><td>ใช่ (เป็นส่วนของประวัติ)</td><td><strong>ไม่</strong> — local เท่านั้น</td></tr>
+            <tr><td><strong>อยู่ถาวรไหม</strong></td><td>ถาวร (จนกว่าจะลบ)</td><td>หมดอายุ ~90 วัน (default)</td></tr>
+            <tr><td><strong>เหมาะกับ</strong></td><td>ดูประวัติโปรเจกต์</td><td>กู้งานที่เพิ่งทำหาย</td></tr>
+          </tbody>
+        </table>
+        <div class="callout danger"><span class="ico">🚨</span><div>reflog เป็น <strong>local เท่านั้น</strong> — มันไม่ถูก <code>push</code> และไม่ตามมาเวลา <code>clone</code> ถ้าคุณ clone repo ใหม่ในเครื่องอื่น reflog จะว่างเปล่า อย่าพึ่งพา reflog เป็น backup ระยะยาว และอย่ารัน <code>git reflog expire --expire=now --all</code> ตามมั่ว — มันลบตาข่ายนิรภัยของคุณทิ้ง</div></div>
+
+        <h2>6. reflog ครอบคลุมอะไรบ้าง</h2>
+        <p>reflog ช่วยกู้ได้ในหลายสถานการณ์ที่ดูเหมือนหายนะ ตราบใดที่สิ่งนั้น <strong>เคยถูก commit</strong>:</p>
+        <svg class="diagram" viewBox="0 0 720 240" role="img" aria-label="แผนภาพ reflog เป็นตาข่ายนิรภัยที่ครอบสถานการณ์ reset, rebase, ลบ branch">
+          <rect class="node primary" x="270" y="95" width="180" height="56" rx="12"/>
+          <text class="label" x="360" y="120" text-anchor="middle" font-weight="700">git reflog</text>
+          <text class="muted" x="360" y="140" text-anchor="middle" font-size="12">ตาข่ายนิรภัย</text>
+
+          <rect class="node" x="30"  y="20" width="190" height="48" rx="10"/>
+          <text class="label" x="125" y="42" text-anchor="middle" font-size="13">reset --hard ผิด</text>
+          <text class="muted" x="125" y="59" text-anchor="middle" font-size="11">commit หลุด branch</text>
+
+          <rect class="node" x="500" y="20" width="190" height="48" rx="10"/>
+          <text class="label" x="595" y="42" text-anchor="middle" font-size="13">rebase พัง</text>
+          <text class="muted" x="595" y="59" text-anchor="middle" font-size="11">เขียนประวัติทับ</text>
+
+          <rect class="node" x="30"  y="178" width="190" height="48" rx="10"/>
+          <text class="label" x="125" y="200" text-anchor="middle" font-size="13">ลบ branch ผิด</text>
+          <text class="muted" x="125" y="217" text-anchor="middle" font-size="11">branch -D เผลอ</text>
+
+          <rect class="node" x="500" y="178" width="190" height="48" rx="10"/>
+          <text class="label" x="595" y="200" text-anchor="middle" font-size="13">amend ทับ commit</text>
+          <text class="muted" x="595" y="217" text-anchor="middle" font-size="11">ตัวเก่ายังอยู่</text>
+
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--accent)"/></marker></defs>
+          <line class="edge" x1="220" y1="50"  x2="285" y2="100" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="500" y1="50"  x2="435" y2="100" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="220" y1="198" x2="285" y2="146" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="500" y1="198" x2="435" y2="146" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+        </svg>
+        <p>กรณีลบ branch ผิด: ตอนลบ Git จะพิมพ์ hash ออกมาด้วย (เช่น <code>Deleted branch feature (was a7c4d90)</code>) เอา hash นั้นไป <code>git checkout</code> แล้วสร้าง branch ใหม่ได้เลย หรือถ้าจำไม่ได้ก็หาใน reflog ของ HEAD</p>
+
+        <h2>7. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="reflog บันทึกลำดับทุกตำแหน่งที่ HEAD เคยอยู่ (commit, switch, reset, rebase...) จึงเห็น commit ที่หลุดจาก branch ไปแล้วซึ่ง git log มองไม่เห็น">
+          <div class="quiz-q">Q1. <code>git reflog</code> ต่างจาก <code>git log</code> ตรงไหน?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">reflog แสดงเฉพาะ commit บน remote เท่านั้น</button>
+            <button class="quiz-opt">reflog เดินตามลำดับเวลาที่ HEAD ขยับ จึงเห็น commit ที่หลุด branch ได้</button>
+            <button class="quiz-opt">reflog กับ log แสดงผลเหมือนกันทุกอย่าง</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="reflog เป็น local เท่านั้น ไม่ถูก push และไม่ตามมาเวลา clone อีกทั้ง entry ยังหมดอายุราว 90 วันโดย default จึงไม่ใช่ backup ระยะยาว">
+          <div class="quiz-q">Q2. ข้อใด <strong>ถูกต้อง</strong> เกี่ยวกับขอบเขตของ reflog?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">reflog ถูก push ขึ้น remote อัตโนมัติ ใช้เป็น backup ได้</button>
+            <button class="quiz-opt">reflog อยู่ถาวรตลอดไป ไม่มีวันหมดอายุ</button>
+            <button class="quiz-opt">reflog เป็น local เท่านั้น และ entry หมดอายุราว 90 วัน</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>8. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ: ทำ commit หายแล้วกู้คืนด้วย reflog</strong> เปิด terminal จริงในเครื่องคุณ แล้วทำตามทีละขั้น
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → <code>git commit --allow-empty -m "A"</code></li>
+            <li>ทำซ้ำให้ได้สาม commit: <code>"B"</code> และ <code>"C"</code> แล้วรัน <code>git log --oneline</code> (ควรเห็น A, B, C)</li>
+            <li><strong>ทำพัง:</strong> <code>git reset --hard HEAD~2</code> → รัน <code>git log --oneline</code> อีกครั้ง จะเหลือแค่ <code>A</code> เหมือน B,C หายไป 😱</li>
+            <li><strong>สืบหา:</strong> <code>git reflog</code> — มองหาบรรทัดที่เขียนว่า <code>commit: C</code> แล้วจดพิกัด <code>HEAD@{n}</code> หรือ hash ของมัน</li>
+            <li><strong>กู้คืน:</strong> ลองทั้งสองวิธี — (A) <code>git reset --hard HEAD@{n}</code> หรือ (B) <code>git checkout &lt;hash-ของC&gt;</code> แล้ว <code>git switch -c rescue</code></li>
+            <li>รัน <code>git log --oneline</code> ยืนยันว่า <code>C</code> กลับมาแล้ว</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นกับตาว่า commit ที่ "หาย" หลัง <code>reset --hard</code> กู้กลับได้เสมอ ถ้ามันเคยถูก commit
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>reflog</strong> = บันทึกทุกที่ที่ <code>HEAD</code> เคยอยู่ (commit, switch, reset, rebase, merge) — ตาข่ายนิรภัยของคุณ</li>
+          <li>ใช้พิกัด <code>HEAD@{n}</code> นับถอยหลัง: <code>HEAD@{0}</code> คือล่าสุด</li>
+          <li>กู้คืนด้วย <code>git reset --hard HEAD@{n}</code> (ย้าย branch กลับ) หรือ <code>git checkout &lt;hash&gt;</code> + สร้าง branch ใหม่ (ปลอดภัยกว่า)</li>
+          <li>reflog เป็น <strong>local เท่านั้น</strong> ไม่ push และ entry หมดอายุ ~90 วัน — ไม่ใช่ backup ระยะยาว</li>
+          <li>ก่อนตกใจว่างานหาย <strong>ลอง <code>git reflog</code> ก่อนเสมอ</strong> — สิ่งที่เคย commit แทบไม่เคยหายจริง</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "11-reflog" });</script>
+</body>
+</html>

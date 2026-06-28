@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 6 · Remote — Git Mastery</title>
+  <meta name="description" content="ทำงานกับ remote ให้ลึก: origin คืออะไร, git remote -v, ความต่างของ fetch vs pull, remote-tracking branch (origin/main) และ upstream/tracking branch" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 6</span>
+          <h1>Remote</h1>
+          <p class="lead muted">repo บนเครื่องคุณกับ repo บน GitHub คือ repo คนละตัวที่คุยกันผ่าน "remote" เข้าใจว่า fetch ต่างจาก pull ยังไง แล้วคุณจะเลิกกลัวคำว่า "sync ไม่ตรง" ตลอดไป</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า <strong>remote</strong> และ <strong>origin</strong> คืออะไร อ่าน <code>git remote -v</code> ได้</li>
+              <li>แยกชัด ๆ ระหว่าง <strong>git fetch</strong> (ดึงมาเฉย ๆ) กับ <strong>git pull</strong> (ดึง + merge)</li>
+              <li>เข้าใจ <strong>remote-tracking branch</strong> (<code>origin/main</code>) ว่าเป็นสำเนา read-only ของฝั่ง remote</li>
+              <li>ตั้ง <strong>upstream / tracking branch</strong> ด้วย <code>git push -u</code> และ <code>--set-upstream-to</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. remote คืออะไร และ origin มาจากไหน</h2>
+        <p>"remote" คือ <strong>ชื่อย่อ (alias) ที่ชี้ไปยัง URL ของ repo อีกตัวหนึ่ง</strong> โดยทั่วไปคือ repo บน GitHub/GitLab แทนที่จะต้องพิมพ์ URL ยาว ๆ ทุกครั้ง Git ให้เราตั้งชื่อสั้น ๆ แทน ชื่อ <code>origin</code> เป็นเพียง <strong>ชื่อตามธรรมเนียม</strong> ที่ <code>git clone</code> ตั้งให้อัตโนมัติ ไม่ใช่คำสงวน — คุณจะตั้งชื่ออื่นก็ได้</p>
+        <pre><code><span class="tok-cmd">git</span> remote <span class="tok-flag">-v</span>          <span class="tok-cmt"># ดู remote ทั้งหมด พร้อม URL (verbose)</span>
+<span class="tok-out">origin  https://github.com/you/project.git (fetch)</span>
+<span class="tok-out">origin  https://github.com/you/project.git (push)</span></code></pre>
+        <p>สังเกตว่ามีสองบรรทัด — Git แยก URL สำหรับ <em>fetch</em> (ดึงลง) กับ <em>push</em> (ส่งขึ้น) ได้ แม้ส่วนใหญ่จะเป็น URL เดียวกัน คำสั่งจัดการ remote อื่น ๆ:</p>
+        <pre><code><span class="tok-cmd">git</span> remote add origin <span class="tok-out">&lt;url&gt;</span>   <span class="tok-cmt"># เพิ่ม remote ชื่อ origin</span>
+<span class="tok-cmd">git</span> remote rename origin upstream  <span class="tok-cmt"># เปลี่ยนชื่อ</span>
+<span class="tok-cmd">git</span> remote remove origin           <span class="tok-cmt"># ลบออก</span>
+<span class="tok-cmd">git</span> remote show origin             <span class="tok-cmt"># ดูรายละเอียด branch ทั้งหมดของ remote</span></code></pre>
+        <div class="callout note"><span class="ico">💡</span><div><code>git remote</code> และเพื่อน ๆ (<code>fetch</code>, <code>pull</code>, <code>push</code>) คุยกับเน็ตเวิร์ก — terminal จำลองในไซต์นี้ไม่รองรับ ตัวอย่างในบทนี้จึงเป็น <code>&lt;pre&gt;</code> ให้อ่าน แล้วลองจริงในเครื่องคุณ</div></div>
+
+        <h2>2. repo สามตัว: local, remote-tracking, remote จริง</h2>
+        <p>หัวใจของบทนี้คือต้องเห็นภาพว่ามี branch อยู่ <strong>สามชั้น</strong> ไม่ใช่สองชั้น หลายคนพลาดเพราะนึกว่ามีแค่ "เครื่องเรา" กับ "GitHub"</p>
+
+        <svg class="diagram" viewBox="0 0 720 250" role="img" aria-label="แผนภาพสามชั้น: local branch main, remote-tracking branch origin/main, และ remote จริงบน GitHub">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker></defs>
+          <rect class="node" x="20"  y="70" width="190" height="100" rx="12"/>
+          <rect class="node" x="265" y="70" width="190" height="100" rx="12"/>
+          <rect class="node" x="510" y="70" width="190" height="100" rx="12"/>
+          <text class="muted" x="115" y="55"  text-anchor="middle" font-size="12" font-weight="700">เครื่องคุณ (.git ของคุณ)</text>
+          <text class="muted" x="605" y="55"  text-anchor="middle" font-size="12" font-weight="700">เซิร์ฟเวอร์ (GitHub)</text>
+          <text class="label" x="115" y="110" text-anchor="middle" font-weight="700">main</text>
+          <text class="muted" x="115" y="133" text-anchor="middle" font-size="12">local branch — แก้ได้</text>
+          <text class="label" x="360" y="110" text-anchor="middle" font-weight="700">origin/main</text>
+          <text class="muted" x="360" y="133" text-anchor="middle" font-size="12">remote-tracking (read-only)</text>
+          <text class="label" x="605" y="110" text-anchor="middle" font-weight="700">main</text>
+          <text class="muted" x="605" y="133" text-anchor="middle" font-size="12">ของจริงบน server</text>
+          <line class="edge" x1="510" y1="105" x2="457" y2="105" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <text class="primary" x="483" y="95" text-anchor="middle" font-size="11" font-weight="600">fetch</text>
+          <line class="edge" x1="265" y1="140" x2="212" y2="140" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar)"/>
+          <text class="accent" x="238" y="160" text-anchor="middle" font-size="11" font-weight="600">merge</text>
+          <line class="edge" x1="212" y1="180" x2="700" y2="180" stroke="var(--text-muted)" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ar)"/>
+          <text class="muted" x="456" y="200" text-anchor="middle" font-size="11" font-weight="600">push (ส่ง local → server โดยตรง)</text>
+        </svg>
+
+        <ul>
+          <li><strong>local branch (<code>main</code>)</strong> — branch ที่คุณ commit ลงไปได้จริง อยู่บนเครื่องคุณ</li>
+          <li><strong>remote-tracking branch (<code>origin/main</code>)</strong> — <em>สำเนา read-only</em> ที่ Git จดไว้ว่า "ครั้งล่าสุดที่คุยกับ server <code>main</code> ของมันอยู่ตรงไหน" คุณ commit ลงตรงนี้ตรง ๆ ไม่ได้ มันขยับเมื่อคุณ <code>fetch</code>/<code>pull</code>/<code>push</code> เท่านั้น</li>
+          <li><strong>remote จริง</strong> — <code>main</code> ตัวจริงที่อยู่บน GitHub</li>
+        </ul>
+        <div class="callout tip"><span class="ico">✅</span><div><code>origin/main</code> ไม่ใช่ "ของบน GitHub แบบสด ๆ" แต่เป็น <strong>ภาพถ่ายครั้งล่าสุด</strong> ที่เครื่องคุณรู้ ถ้าเพื่อน push ขึ้นไปเมื่อ 5 นาทีก่อน เครื่องคุณจะยัง <em>ไม่รู้</em> จนกว่าจะ <code>fetch</code></div></div>
+
+        <h2>3. git fetch — ดึงมาเก็บ แต่ไม่แตะงานคุณ</h2>
+        <p><code>git fetch</code> ไปถาม server ว่า "มี commit อะไรใหม่ไหม" แล้ว <strong>ดาวน์โหลด commit ใหม่ลงมาอัปเดตเฉพาะ <code>origin/main</code></strong> เท่านั้น มัน <strong>ไม่แตะ working directory และไม่แตะ local branch <code>main</code> ของคุณเลย</strong> งานที่คุณกำลังทำอยู่จึงปลอดภัย 100% — fetch เป็นคำสั่งที่ "ปลอดภัยเสมอ" รันได้บ่อยเท่าที่ต้องการ</p>
+        <pre><code><span class="tok-cmd">git</span> fetch origin       <span class="tok-cmt"># ดึง commit ใหม่มาที่ origin/main เท่านั้น</span>
+<span class="tok-out">From github.com:you/project</span>
+<span class="tok-out">   3a1f9c2..7d4e8b1  main -> origin/main</span>
+
+<span class="tok-cmd">git</span> log <span class="tok-flag">--oneline</span> main..origin/main   <span class="tok-cmt"># ดูว่ามี commit อะไรที่ตามหลังอยู่</span>
+<span class="tok-out">7d4e8b1 add login form</span></code></pre>
+        <p>หลัง fetch แล้ว local <code>main</code> ของคุณยังอยู่ที่เดิม คุณจะตรวจดูของใหม่ก่อน (<code>git diff main origin/main</code>) แล้วค่อยตัดสินใจ merge เมื่อไรก็ได้ นี่คือข้อดีของ fetch: <strong>แยกขั้น "ดึง" ออกจากขั้น "รวม"</strong></p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ขั้นที่ 1 — ก่อน fetch: local main อยู่ที่ b2 และ origin/main (สำเนาที่เครื่องรู้) ก็อยู่ที่ b2 เหมือนกัน",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"local: เพิ่มหน้าแรก"}
+             ]},
+            {"head":"main","caption":"ขั้นที่ 2 — หลัง git fetch: origin/main ขยับไป c3 (ของใหม่จาก server) แต่ local main ยังคาอยู่ที่ b2 งานคุณไม่ถูกแตะ",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"local: เพิ่มหน้าแรก"},
+               {"id":"c3","branch":"origin/main","parents":["b2"],"msg":"server: add login form"}
+             ]}
+          ]
+          </script>
+        </div>
+
+        <h2>4. git pull — fetch แล้ว merge ให้เลยในคำสั่งเดียว</h2>
+        <p><code>git pull</code> ไม่ใช่คำสั่งวิเศษ แต่เป็น <strong>ทางลัดของสองคำสั่ง</strong>:</p>
+        <pre><code><span class="tok-cmd">git</span> pull origin main
+<span class="tok-cmt"># เทียบเท่ากับ:</span>
+<span class="tok-cmd">git</span> fetch origin            <span class="tok-cmt"># 1) ดึง commit ใหม่ → อัปเดต origin/main</span>
+<span class="tok-cmd">git</span> merge origin/main       <span class="tok-cmt"># 2) merge เข้า branch ปัจจุบันทันที</span></code></pre>
+        <p>เพราะ pull ทำขั้น merge ให้ทันที มันจึง <strong>เปลี่ยน working directory และ local branch ของคุณ</strong> — และถ้าของใหม่ชนกับงานที่คุณยังไม่ commit ก็อาจเกิด <strong>merge conflict</strong> ได้ (ดูบทที่ 7) ด้วยเหตุนี้ pull จึงไม่ใช่คำสั่งที่ "ปลอดภัยเสมอ" แบบ fetch</p>
+        <div class="callout warn"><span class="ico">⚠️</span><div><strong>commit งานคุณก่อน pull เสมอ</strong> ถ้ามีไฟล์แก้ค้างอยู่ใน working directory แล้ว pull ทับ อาจปวดหัวเรื่อง conflict หรือถูกขัดจังหวะกลางคัน นิสัยที่ดี: <code>git status</code> ให้ clean → แล้วค่อย pull</div></div>
+        <div class="callout note"><span class="ico">🧭</span><div>อยากให้ pull รวมแบบเส้นตรง (ไม่สร้าง merge commit) ใช้ <code>git pull --rebase</code> ซึ่งจะเอา commit ของคุณไปต่อท้ายของใหม่แทน (รายละเอียด rebase อยู่บทที่ 10)</div></div>
+
+        <h2>5. ตาราง: fetch vs pull</h2>
+        <table>
+          <thead><tr><th>ประเด็น</th><th><code>git fetch</code></th><th><code>git pull</code></th></tr></thead>
+          <tbody>
+            <tr><td>ทำอะไร</td><td>ดาวน์โหลด commit ใหม่</td><td>ดาวน์โหลด <strong>แล้ว merge</strong></td></tr>
+            <tr><td>เท่ากับ</td><td>fetch</td><td>fetch + merge</td></tr>
+            <tr><td>แตะ <code>origin/main</code>?</td><td>ใช่ (อัปเดต)</td><td>ใช่ (อัปเดต)</td></tr>
+            <tr><td>แตะ local <code>main</code>?</td><td><strong>ไม่</strong></td><td><strong>ใช่</strong> (ขยับ/merge)</td></tr>
+            <tr><td>แตะ working directory?</td><td>ไม่</td><td>ใช่</td></tr>
+            <tr><td>เสี่ยง conflict?</td><td>ไม่เลย</td><td>มีโอกาส</td></tr>
+            <tr><td>ปลอดภัยรันได้ตลอด?</td><td>ใช่</td><td>ควรเช็คก่อน</td></tr>
+          </tbody>
+        </table>
+
+        <h2>6. push — ส่งงานคุณขึ้น server</h2>
+        <p><code>git push</code> ทำตรงข้ามกับ fetch: เอา commit ของ local branch <strong>ส่งขึ้นไปอัปเดต branch บน server โดยตรง</strong> (และอัปเดต <code>origin/main</code> ในเครื่องคุณตามไปด้วย) เงื่อนไขสำคัญ: push จะสำเร็จก็ต่อเมื่อ local ของคุณ <strong>นำหน้า (ahead)</strong> ของ server เท่านั้น ถ้า server มี commit ที่คุณยังไม่มี Git จะปฏิเสธ:</p>
+        <pre><code><span class="tok-cmd">git</span> push origin main
+<span class="tok-out">! [rejected]        main -> main (fetch first)</span>
+<span class="tok-out">error: failed to push some refs ...</span>
+<span class="tok-cmt"># แก้: git pull (รวมของใหม่เข้ามาก่อน) แล้วค่อย push ใหม่</span></code></pre>
+        <div class="callout danger"><span class="ico">🚫</span><div>เมื่อโดน rejected <strong>อย่ารีบ <code>git push --force</code></strong> เพราะมันจะเขียนทับประวัติของเพื่อนที่ push ไปก่อน ทางที่ถูกคือ <code>pull</code> ให้รวมของใหม่เข้ามาก่อน ถ้าจำเป็นต้อง force จริง ๆ ให้ใช้ <code>--force-with-lease</code> ซึ่งปลอดภัยกว่า (จะ fail ถ้ามีคนอื่น push แทรกเข้ามา)</div></div>
+
+        <h2>7. upstream / tracking branch</h2>
+        <p>"tracking branch" คือการ <strong>จับคู่ local branch กับ remote branch หนึ่งตัว</strong> เมื่อจับคู่แล้ว คุณพิมพ์แค่ <code>git push</code> หรือ <code>git pull</code> เปล่า ๆ ได้เลย ไม่ต้องระบุ <code>origin main</code> ทุกครั้ง เพราะ Git จำได้ว่า local <code>main</code> ผูกกับ (มี upstream เป็น) <code>origin/main</code></p>
+        <p>วิธีตั้ง upstream มีสองทาง:</p>
+        <pre><code><span class="tok-cmt"># ทาง 1: ตอน push ครั้งแรก ใส่ -u (ย่อจาก --set-upstream)</span>
+<span class="tok-cmd">git</span> push <span class="tok-flag">-u</span> origin main
+<span class="tok-out">Branch 'main' set up to track 'origin/main'.</span>
+
+<span class="tok-cmt"># ทาง 2: ตั้งให้ branch ที่มีอยู่แล้ว</span>
+<span class="tok-cmd">git</span> branch <span class="tok-flag">--set-upstream-to</span>=origin/main main</code></pre>
+        <p>หลังตั้งแล้ว <code>git status</code> จะบอกได้ว่าคุณ <em>ahead/behind</em> server กี่ commit และคำสั่งสั้นลง:</p>
+        <pre><code><span class="tok-cmd">git</span> status <span class="tok-flag">-sb</span>
+<span class="tok-out">## main...origin/main [ahead 2]</span>   <span class="tok-cmt"># มี 2 commit ที่ยังไม่ push</span>
+
+<span class="tok-cmd">git</span> push              <span class="tok-cmt"># ไม่ต้องพิมพ์ origin main แล้ว</span>
+<span class="tok-cmd">git</span> branch <span class="tok-flag">-vv</span>          <span class="tok-cmt"># ดูว่าแต่ละ branch track อะไรอยู่</span>
+<span class="tok-out">* main 7d4e8b1 [origin/main: ahead 2] add cart</span></code></pre>
+
+        <h2>8. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="git fetch ดาวน์โหลด commit ใหม่มาอัปเดตเฉพาะ remote-tracking branch (origin/main) เท่านั้น ไม่แตะ local branch หรือ working directory จึงปลอดภัยเสมอ ส่วน git pull = fetch + merge ซึ่งเปลี่ยน branch ปัจจุบันทันที">
+          <div class="quiz-q">Q1. ข้อใดอธิบายความต่างของ <code>git fetch</code> กับ <code>git pull</code> ได้ถูกต้อง?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">ทั้งสองคำสั่งเหมือนกันทุกประการ ต่างแค่ชื่อ</button>
+            <button class="quiz-opt">fetch ดึงมาอัปเดต origin/main เฉย ๆ ส่วน pull = fetch + merge เข้า branch ปัจจุบันทันที</button>
+            <button class="quiz-opt">fetch ส่ง commit ขึ้น server ส่วน pull ดึง commit ลงมา</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="origin/main คือ remote-tracking branch — สำเนา read-only ที่บันทึกสถานะ remote 'ครั้งล่าสุดที่เครื่องคุณคุยกับ server' คุณ commit ลงตรง ๆ ไม่ได้ มันขยับเมื่อ fetch/pull/push เท่านั้น">
+          <div class="quiz-q">Q2. <code>origin/main</code> คืออะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">branch ที่คุณ commit งานลงไปได้โดยตรงบนเครื่อง</button>
+            <button class="quiz-opt">URL ของ remote repository</button>
+            <button class="quiz-opt">remote-tracking branch — สำเนา read-only ของสถานะ remote ครั้งล่าสุดที่เครื่องรู้</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>9. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> ฝึก fetch/pull/push ให้เห็นความต่างจริง (ต้องมี repo บน GitHub สักตัว หรือสร้างใหม่ก็ได้) สังเกต <code>git status -sb</code> ทุกขั้น
+          <ol>
+            <li>โคลน repo ลงมา: <code>git clone &lt;url&gt;</code> แล้วรัน <code>git remote -v</code> ดูว่า <code>origin</code> ชี้ไปไหน</li>
+            <li>ไปแก้ไฟล์ผ่านหน้าเว็บ GitHub โดยตรง 1 commit (จำลองว่า "เพื่อน push") — ตอนนี้ server นำหน้าเครื่องคุณแล้ว</li>
+            <li>กลับมาที่เครื่อง รัน <code>git fetch</code> → สังเกตว่า <code>git log --oneline main</code> <em>ยังไม่เปลี่ยน</em> แต่ <code>git log --oneline origin/main</code> มี commit ใหม่โผล่มา</li>
+            <li>เทียบของใหม่กับของคุณ: <code>git diff main origin/main</code></li>
+            <li>รวมของใหม่เข้ามา: <code>git merge origin/main</code> (หรือทำขั้น 3-5 รวบเดียวด้วย <code>git pull</code>) — ตอนนี้ <code>main</code> ขยับตามแล้ว</li>
+            <li>commit งานของคุณเอง 1 อัน แล้ว <code>git push -u origin main</code> → จากนั้นลอง <code>git status -sb</code> ดูว่าขึ้นว่า track <code>origin/main</code> และ ahead/behind เท่าไร</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นกับตาว่า fetch ไม่แตะ <code>main</code> แต่ pull แตะ และเข้าใจว่า <code>origin/main</code> ขยับเมื่อไร
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>remote</strong> คือชื่อย่อที่ชี้ไป URL ของ repo อีกตัว — <code>origin</code> เป็นเพียงชื่อตามธรรมเนียมที่ <code>clone</code> ตั้งให้ ดูได้ด้วย <code>git remote -v</code></li>
+          <li><strong>origin/main</strong> คือ remote-tracking branch — สำเนา <strong>read-only</strong> ของสถานะ remote ครั้งล่าสุดที่เครื่องคุณรู้</li>
+          <li><strong>fetch</strong> ดึง commit ใหม่มาอัปเดต <code>origin/main</code> เท่านั้น ไม่แตะ local/working — ปลอดภัยเสมอ</li>
+          <li><strong>pull</strong> = <code>fetch</code> + <code>merge</code> เข้า branch ปัจจุบันทันที จึงเปลี่ยนงานคุณและอาจเกิด conflict</li>
+          <li>ตั้ง <strong>upstream</strong> ด้วย <code>git push -u</code> หรือ <code>--set-upstream-to</code> แล้ว <code>push</code>/<code>pull</code> เปล่า ๆ ได้เลย</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "06-remote" });</script>
+</body>
+</html>

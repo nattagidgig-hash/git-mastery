@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 8 · Reset — Git Mastery</title>
+  <meta name="description" content="git reset สามโหมด: --soft, --mixed (default), --hard — ย้าย HEAD/branch pointer, unstage ไฟล์, และเข้าใจว่าโหมดไหนแตะ tree ไหน รวมถึงอันตรายของ --hard และการกู้ด้วย reflog" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 8</span>
+          <h1>Reset</h1>
+          <p class="lead muted">git reset คือการ "ย้อนเวลา" ด้วยการเลื่อน pointer ของ branch (และ HEAD) ไปยัง commit ที่เลือก หัวใจอยู่ที่สามโหมด — <code>--soft</code>, <code>--mixed</code>, <code>--hard</code> — ซึ่งต่างกันที่ว่ามัน "แตะ" tree ไหนบ้าง เข้าใจตรงนี้แล้ว reset จะไม่ใช่คำสั่งน่ากลัวอีกต่อไป</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า reset คือการ <strong>เลื่อน branch pointer + HEAD</strong> ไปยัง commit เป้าหมาย</li>
+              <li>แยกแยะสามโหมด <code>--soft</code> / <code>--mixed</code> / <code>--hard</code> ว่ากระทบ Working & Staging อย่างไร</li>
+              <li>ใช้ <code>git reset HEAD &lt;file&gt;</code> เพื่อ <strong>unstage</strong> และ <code>git reset --hard HEAD~1</code> เพื่อลบ commit ล่าสุด</li>
+              <li>รู้ความอันตรายของ <code>--hard</code> และรู้ว่า <strong>reflog</strong> ช่วยกู้ commit ที่ "หาย" ได้</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. reset คืออะไรจริง ๆ</h2>
+        <p>ในบท Mental Model เราเห็นแล้วว่า <code>HEAD</code> ชี้ commit ปัจจุบัน (ผ่าน branch) และมีสาม tree เสมอ: <strong>Working Directory</strong>, <strong>Staging Area (Index)</strong>, และ <strong>Repository</strong>. คำสั่ง <code>git reset</code> มีหน้าที่หลักเดียวคือ <strong>ย้าย branch pointer (และ HEAD) ไปยัง commit ที่เราระบุ</strong> ส่วนจะลากเอา Staging กับ Working ตามไปด้วยหรือไม่นั้น <em>ขึ้นกับโหมด</em></p>
+        <p>สังเกตว่า reset <strong>ไม่ได้สร้าง commit ใหม่</strong> (ต่างจาก revert) มันแค่เลื่อน pointer ถอยหลัง ทำให้ commit ที่อยู่ "ข้างหน้า" หลุดออกจากสายประวัติของ branch (แต่ object ยังอยู่ใน .git ชั่วคราว — ดูหัวข้อ reflog)</p>
+        <div class="callout note"><span class="ico">💡</span><div><strong>ประโยคเดียวที่ต้องจำ:</strong> "reset = ขยับ branch ไปชี้ commit อื่น แล้วเลือกว่าจะลาก index/working ตามไปแค่ไหน" — soft ลากน้อยสุด, hard ลากทั้งหมด</div></div>
+
+        <h2>2. สามโหมด แตะ tree ไหนบ้าง</h2>
+        <p>นี่คือหัวใจของทั้งบท ภาพข้างล่างแสดงว่าแต่ละโหมด "ลาก" tree ไหนให้ขยับตาม HEAD ไปด้วย ยิ่งโหมดแรง ยิ่งกินพื้นที่มากขึ้นจากซ้ายมาขวา</p>
+
+        <svg class="diagram" viewBox="0 0 720 290" role="img" aria-label="แผนภาพเปรียบเทียบ git reset สามโหมด ว่าโหมดไหนกระทบ HEAD, Staging และ Working Directory">
+          <!-- column headers -->
+          <text class="label" x="190" y="34" text-anchor="middle" font-weight="700">HEAD / branch</text>
+          <text class="label" x="380" y="34" text-anchor="middle" font-weight="700">Staging (Index)</text>
+          <text class="label" x="575" y="34" text-anchor="middle" font-weight="700">Working Dir</text>
+
+          <!-- soft row -->
+          <text class="accent" x="70" y="86" text-anchor="middle" font-weight="700" font-size="13">--soft</text>
+          <rect class="node primary" x="110" y="60" width="160" height="44" rx="10"/>
+          <text class="label" x="190" y="87" text-anchor="middle" font-size="12">เลื่อน ✔</text>
+          <rect class="node" x="300" y="60" width="160" height="44" rx="10"/>
+          <text class="muted" x="380" y="87" text-anchor="middle" font-size="12">เก็บไว้</text>
+          <rect class="node" x="490" y="60" width="170" height="44" rx="10"/>
+          <text class="muted" x="575" y="87" text-anchor="middle" font-size="12">เก็บไว้</text>
+
+          <!-- mixed row -->
+          <text class="accent" x="70" y="156" text-anchor="middle" font-weight="700" font-size="13">--mixed</text>
+          <text class="muted" x="70" y="172" text-anchor="middle" font-size="10">(default)</text>
+          <rect class="node primary" x="110" y="130" width="160" height="44" rx="10"/>
+          <text class="label" x="190" y="157" text-anchor="middle" font-size="12">เลื่อน ✔</text>
+          <rect class="node primary" x="300" y="130" width="160" height="44" rx="10"/>
+          <text class="label" x="380" y="157" text-anchor="middle" font-size="12">ล้าง (reset) ✔</text>
+          <rect class="node" x="490" y="130" width="170" height="44" rx="10"/>
+          <text class="muted" x="575" y="157" text-anchor="middle" font-size="12">เก็บไว้</text>
+
+          <!-- hard row -->
+          <text class="accent" x="70" y="226" text-anchor="middle" font-weight="700" font-size="13">--hard</text>
+          <rect class="node primary" x="110" y="200" width="160" height="44" rx="10"/>
+          <text class="label" x="190" y="227" text-anchor="middle" font-size="12">เลื่อน ✔</text>
+          <rect class="node primary" x="300" y="200" width="160" height="44" rx="10"/>
+          <text class="label" x="380" y="227" text-anchor="middle" font-size="12">ล้าง ✔</text>
+          <rect class="node accent" x="490" y="200" width="170" height="44" rx="10"/>
+          <text class="label" x="575" y="227" text-anchor="middle" font-size="12">เขียนทับ! ⚠</text>
+
+          <text class="muted" x="360" y="276" text-anchor="middle" font-size="11">ยิ่งไปทางขวา = ยิ่ง "ลาก" tree ตามไปเยอะ → --hard ทิ้งงานที่ยังไม่ commit</text>
+        </svg>
+
+        <table>
+          <thead><tr><th>โหมด</th><th>HEAD/branch</th><th>Staging (Index)</th><th>Working Dir</th><th>ใช้ตอนไหน</th></tr></thead>
+          <tbody>
+            <tr><td><code>--soft</code></td><td>เลื่อน</td><td>คงเดิม</td><td>คงเดิม</td><td>รวมหลาย commit / แก้ message (งานทั้งหมดยังอยู่ใน staging พร้อม commit ใหม่)</td></tr>
+            <tr><td><code>--mixed</code> <em>(default)</em></td><td>เลื่อน</td><td><strong>ล้าง</strong></td><td>คงเดิม</td><td>unstage ไฟล์ / เอา commit ออกมาเป็นการแก้ที่ยังไม่ stage</td></tr>
+            <tr><td><code>--hard</code></td><td>เลื่อน</td><td><strong>ล้าง</strong></td><td><strong>ทิ้ง</strong></td><td>โยนงานที่ยังไม่ commit ทิ้งทั้งหมด ให้ตรงกับ commit เป้าหมายเป๊ะ ⚠️</td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. ตัวอย่างสายประวัติ: reset ทำอะไรกับ branch</h2>
+        <p>สมมติ branch <code>main</code> มี 4 commit ถ้าเรารัน <code>git reset --hard HEAD~1</code> (หรือ <code>git reset --hard a3</code>) pointer ของ <code>main</code> จะถอยกลับ 1 ก้าว commit <code>d4</code> หลุดออกจากสายประวัติทันที</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ก่อน reset — main ชี้ d4 (commit ล่าสุด)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"add feature"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"fix bug"},
+               {"id":"d4","branch":"main","parents":["c3"],"msg":"WIP ที่ไม่อยากเก็บ"}
+             ]},
+            {"head":"main","caption":"หลัง git reset --hard HEAD~1 — main เลื่อนกลับมาชี้ c3, d4 หลุดสาย",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"add feature"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"fix bug"}
+             ]}
+          ]
+          </script>
+        </div>
+        <p class="muted">กดปุ่ม prev/next บนกราฟเพื่อดูก่อน/หลัง reset — สังเกตว่า <code>d4</code> หายไปจากสาย main แต่จริง ๆ object ยังอยู่ใน .git และเข้าถึงได้ผ่าน reflog ชั่วระยะหนึ่ง</p>
+
+        <h2>4. คำสั่งจริง (เทียบสามโหมด)</h2>
+        <p>เริ่มจากสถานะเดียวกัน: HEAD อยู่ที่ commit ล่าสุด แล้วลองสามโหมดกับ <code>HEAD~1</code></p>
+        <pre><code><span class="tok-cmt"># --soft: เลื่อน HEAD กลับ 1 ก้าว, การเปลี่ยนแปลงของ commit เดิมยังอยู่ใน staging</span>
+<span class="tok-cmd">git</span> reset <span class="tok-flag">--soft</span> HEAD~1
+<span class="tok-cmd">git</span> status
+<span class="tok-out">Changes to be committed:</span>      <span class="tok-cmt"># staged พร้อม commit ใหม่ทันที</span>
+<span class="tok-out">  modified:   app.js</span>
+
+<span class="tok-cmt"># --mixed (default): เลื่อน HEAD + ล้าง staging แต่ไฟล์ยังอยู่ในมือ</span>
+<span class="tok-cmd">git</span> reset HEAD~1               <span class="tok-cmt"># ไม่ใส่ flag = --mixed</span>
+<span class="tok-cmd">git</span> status
+<span class="tok-out">Changes not staged for commit:</span>  <span class="tok-cmt"># ต้อง add ใหม่ถ้าจะ commit</span>
+<span class="tok-out">  modified:   app.js</span>
+
+<span class="tok-cmt"># --hard: เลื่อน HEAD + ล้าง staging + เขียนทับ working ⚠️ งานที่ยังไม่ commit หายหมด</span>
+<span class="tok-cmd">git</span> reset <span class="tok-flag">--hard</span> HEAD~1
+<span class="tok-cmd">git</span> status
+<span class="tok-out">nothing to commit, working tree clean</span></code></pre>
+
+        <div class="callout danger"><span class="ico">🔥</span><div>
+          <strong><code>git reset --hard</code> ลบงานที่ยังไม่ commit อย่างถาวร</strong> — ไฟล์ใน Working Directory ที่แก้ค้างไว้แต่ยังไม่ commit จะถูกเขียนทับและ <em>กู้ไม่ได้</em> ผ่าน Git (เพราะมันไม่เคยถูกบันทึกเป็น object เลย) ส่วน <strong>commit</strong> ที่ถูก reset ออก ยังกู้ได้ผ่าน <code>git reflog</code> — เราจะเจาะลึก reflog ในบทถัดไป ๆ ของชุดนี้ จำไว้: ก่อน <code>--hard</code> ทุกครั้ง ถาม "งานที่ยังไม่ commit มีอะไรที่เสียดายไหม"
+        </div></div>
+
+        <h2>5. การใช้ที่พบบ่อยที่สุด: unstage ด้วย reset</h2>
+        <p>สถานการณ์: เผลอ <code>git add</code> ไฟล์ที่ยังไม่อยากเอาเข้า commit นี้ ใช้ <code>--mixed</code> (default) เพื่อ <strong>ดึงออกจาก staging</strong> โดยไม่แตะเนื้อไฟล์เลย</p>
+        <pre><code><span class="tok-cmd">git</span> add .
+<span class="tok-cmd">git</span> reset HEAD secret.env        <span class="tok-cmt"># unstage ไฟล์เดียว (รูปแบบ git reset [HEAD] &lt;file&gt;)</span>
+<span class="tok-out">Unstaged changes after reset:</span>
+<span class="tok-out">M       secret.env</span>            <span class="tok-cmt"># ยังแก้อยู่ แค่ไม่ staged แล้ว</span></code></pre>
+        <p>รูปแบบ <code>git reset &lt;file&gt;</code> นี้ <strong>ไม่เลื่อน HEAD</strong> (เพราะ commit เป้าหมายเป็น HEAD เดิม) มันแค่ทำให้ entry ของไฟล์นั้นใน Index กลับไปตรงกับ HEAD = unstage นั่นเอง Git รุ่นใหม่แนะนำ <code>git restore --staged &lt;file&gt;</code> ซึ่งทำงานเหมือนกันแต่ชื่อชัดเจนกว่า</p>
+        <div class="callout tip"><span class="ico">✅</span><div>จำง่าย: <code>git add</code> = ดันเข้า staging, <code>git reset &lt;file&gt;</code> = ดึงออกจาก staging ทั้งคู่ไม่แตะเนื้อไฟล์ใน Working Directory</div></div>
+
+        <h2>6. reset vs revert vs checkout (อย่าสับสน)</h2>
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>ทำอะไร</th><th>เลื่อน HEAD?</th><th>สร้าง commit ใหม่?</th><th>ปลอดภัยกับ history ที่ push แล้ว?</th></tr></thead>
+          <tbody>
+            <tr><td><code>git reset</code></td><td>เลื่อน branch pointer ถอยหลัง (ลบ commit ออกจากสาย)</td><td>ใช่</td><td>ไม่</td><td><strong>ไม่</strong> — เขียนประวัติใหม่ อันตรายถ้า push ไปแล้ว</td></tr>
+            <tr><td><code>git revert</code></td><td>สร้าง commit ใหม่ที่กลับด้านการเปลี่ยนแปลง</td><td>ไม่ (ขยับไปหน้า)</td><td>ใช่</td><td>ใช่ — ประวัติเดิมยังอยู่ครบ</td></tr>
+            <tr><td><code>git checkout/restore</code></td><td>ดึงไฟล์/ย้าย HEAD ไปดู commit อื่น (ไม่ย้าย branch)</td><td>เฉพาะ detached</td><td>ไม่</td><td>ใช่ (อ่านอย่างเดียว)</td></tr>
+          </tbody>
+        </table>
+        <div class="callout warn"><span class="ico">⚠️</span><div>ถ้า commit ถูก <strong>push ขึ้น remote แล้ว</strong> อย่าใช้ <code>reset</code> เพื่อลบมัน เพราะจะทำให้ประวัติเพื่อนร่วมทีมพัง — ใช้ <code>git revert</code> แทน (บทถัดไป) reset เหมาะกับ commit ที่ยังอยู่แค่ในเครื่องคุณ</div></div>
+
+        <h2>7. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="0" data-explain="--soft เลื่อนแค่ HEAD โดยเก็บทั้ง Staging และ Working ไว้ครบ จึงปลอดภัยที่สุดและเหมาะกับการรวม commit หรือแก้ message">
+          <div class="quiz-q">Q1. โหมด reset ใดที่ "เก็บงานไว้มากที่สุด" คือไม่แตะทั้ง Staging และ Working Directory?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt"><code>git reset --soft</code></button>
+            <button class="quiz-opt"><code>git reset --mixed</code></button>
+            <button class="quiz-opt"><code>git reset --hard</code></button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="--hard เขียนทับ Working Directory ทำให้การแก้ไขที่ยังไม่ commit หายถาวร (กู้ผ่าน Git ไม่ได้) ส่วน --soft และ --mixed ไม่แตะ Working Directory">
+          <div class="quiz-q">Q2. คำสั่งใดเสี่ยงทำให้งานที่แก้ค้างไว้ (ยังไม่ commit) หายอย่างถาวร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt"><code>git reset HEAD file.txt</code></button>
+            <button class="quiz-opt"><code>git reset --soft HEAD~1</code></button>
+            <button class="quiz-opt"><code>git reset --hard HEAD~1</code></button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>8. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> เปิด terminal จริงในเครื่อง สร้าง repo ทดลอง แล้วเล่นกับสามโหมด พร้อมสังเกต <code>git status</code> และ <code>git log --oneline</code> ทุกขั้น
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → สร้างไฟล์ <code>a.txt</code> ใส่ข้อความ → <code>git add a.txt</code> → <code>git commit -m "c1"</code></li>
+            <li>แก้ <code>a.txt</code> อีกครั้ง → <code>git commit -am "c2"</code> ตอนนี้มี 2 commit (<code>git log --oneline</code> เพื่อยืนยัน)</li>
+            <li>ลอง <code>git reset --soft HEAD~1</code> แล้วดู <code>git status</code> — การแก้ของ c2 ควรอยู่ใน "Changes to be committed" (staged)</li>
+            <li><code>git commit -m "c2 ใหม่"</code> เพื่อกลับมาเป็น 2 commit แล้วลอง <code>git reset HEAD~1</code> (mixed) — คราวนี้การแก้ควร <em>ไม่ staged</em></li>
+            <li>add + commit กลับเป็น 2 commit อีกครั้ง สร้างไฟล์ใหม่ <code>scratch.txt</code> (ยังไม่ commit) แล้วลอง <code>git reset --hard HEAD~1</code> — สังเกตว่า commit หายไป 1 และ <code>scratch.txt</code> ที่ยังไม่ commit ก็หายด้วย</li>
+            <li>รัน <code>git reflog</code> แล้วลองหา hash ของ commit ที่เพิ่ง reset ออก (บอกใบ้: บรรทัดบนสุด ๆ) — เตรียมพร้อมสำหรับบท Reflog</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> รู้สึกได้ด้วยมือว่าโหมดไหน "ลาก" tree ไหนตามไป และเห็นว่า --hard ต่างจากสองตัวแรกตรงที่กินถึง Working Directory
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><code>git reset</code> = <strong>เลื่อน branch pointer + HEAD</strong> ไปยัง commit เป้าหมาย ไม่สร้าง commit ใหม่</li>
+          <li><strong>--soft</strong>: เลื่อน HEAD อย่างเดียว (staging + working เก็บไว้) → รวม commit / แก้ message</li>
+          <li><strong>--mixed</strong> (default): เลื่อน HEAD + ล้าง staging (working เก็บไว้) → ใช้ <strong>unstage</strong></li>
+          <li><strong>--hard</strong>: เลื่อน HEAD + ล้าง staging + <strong>ทิ้ง working</strong> = อันตราย ลบงานที่ยังไม่ commit</li>
+          <li><code>git reset HEAD &lt;file&gt;</code> = unstage ไฟล์; <code>git reset --hard HEAD~1</code> = ลบ commit ล่าสุดทิ้ง</li>
+          <li>commit ที่ถูก reset ออกยัง <strong>กู้ได้ผ่าน reflog</strong> แต่ working ที่ยังไม่ commit ไม่มีทางกู้ — อย่าใช้ reset กับ commit ที่ push แล้ว ให้ใช้ revert</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "08-reset" });</script>
+</body>
+</html>

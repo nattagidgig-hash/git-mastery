@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 5 · GitHub — Git Mastery</title>
+  <meta name="description" content="GitHub คือ remote บนคลาวด์สำหรับโฮสต์ repo และทำงานร่วมกัน: push/pull, clone, fork, Pull Request, code review และ README" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 5</span>
+          <h1>GitHub</h1>
+          <p class="lead muted">จนถึงตอนนี้ repo ของคุณอยู่แค่ในเครื่องตัวเอง GitHub คือที่ที่ทำให้มัน "ขึ้นคลาวด์" — สำรองไว้ที่ปลอดภัย แชร์ให้คนอื่น และทำงานร่วมกันด้วย Pull Request ได้</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจความสัมพันธ์ <strong>local ↔ remote (origin)</strong> และบทบาทของ GitHub</li>
+              <li>ทำขั้นตอน <strong>push โปรเจกต์ขึ้น GitHub</strong> ครั้งแรกได้: <code>remote add</code> → <code>branch -M</code> → <code>push -u</code></li>
+              <li>แยกความต่างของ <strong>clone</strong> กับ <strong>fork</strong> และรู้ว่าเมื่อไหร่ใช้อันไหน</li>
+              <li>อธิบายวงจร <strong>Pull Request</strong>: เสนอ merge + code review + discussion</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. remote คืออะไร และ GitHub อยู่ตรงไหน</h2>
+        <p>repo ในเครื่องคุณ (local) สมบูรณ์ในตัวเอง — มีประวัติ commit ครบ ทำงานออฟไลน์ได้หมด แต่ถ้าโน้ตบุ๊กพังหรืออยากให้เพื่อนช่วยทำ คุณต้องมีสำเนาที่ "อยู่ตรงกลาง" ที่ทุกคนเข้าถึงได้ นั่นคือ <strong>remote</strong> — repo อีกชุดที่อยู่บนเซิร์ฟเวอร์</p>
+        <p><strong>GitHub</strong> คือบริการโฮสต์ remote repo บนคลาวด์ พ่วงเครื่องมือทำงานร่วมกัน (Pull Request, code review, issue, CI) มาให้ ชื่อ remote เริ่มต้นที่ทุกคนใช้กันคือ <code>origin</code> — เป็นแค่ชื่อเล่น(alias) ที่ชี้ไปยัง URL ของ repo บน GitHub</p>
+
+        <svg class="diagram" viewBox="0 0 720 250" role="img" aria-label="แผนภาพความสัมพันธ์ระหว่างเครื่อง local กับ GitHub remote ผ่าน push, pull และ clone">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker>
+                <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--accent)"/></marker></defs>
+          <rect class="node" x="30"  y="80" width="220" height="110" rx="12"/>
+          <rect class="node" x="470" y="80" width="220" height="110" rx="12"/>
+          <text class="label" x="140" y="120" text-anchor="middle" font-weight="700">เครื่อง Local</text>
+          <text class="muted" x="140" y="145" text-anchor="middle" font-size="12">repo ในเครื่องคุณ (.git)</text>
+          <text class="muted" x="140" y="165" text-anchor="middle" font-size="12">working + staging + history</text>
+          <text class="label" x="580" y="120" text-anchor="middle" font-weight="700">GitHub (origin)</text>
+          <text class="muted" x="580" y="145" text-anchor="middle" font-size="12">remote repo บนคลาวด์</text>
+          <text class="muted" x="580" y="165" text-anchor="middle" font-size="12">โฮสต์ + collaboration</text>
+          <!-- push (local -> remote) -->
+          <line class="edge primary" x1="252" y1="115" x2="468" y2="115" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <text class="primary" x="360" y="105" text-anchor="middle" font-size="13" font-weight="600">git push  (ส่งขึ้น)</text>
+          <!-- pull (remote -> local) -->
+          <line class="edge accent" x1="468" y1="155" x2="252" y2="155" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar2)"/>
+          <text class="accent" x="360" y="178" text-anchor="middle" font-size="13" font-weight="600">git pull  (ดึงลง)</text>
+          <text class="muted" x="360" y="218" text-anchor="middle" font-size="12">git clone &lt;url&gt; = สร้าง local ใหม่จาก remote ครั้งแรก</text>
+        </svg>
+
+        <div class="callout note"><span class="ico">💡</span><div><strong>origin เป็นแค่ชื่อ:</strong> ไม่ใช่คำสงวนของ Git ตั้งชื่อ remote เป็นอะไรก็ได้ แต่ <code>origin</code> คือธรรมเนียมมาตรฐานสำหรับ remote หลัก ทุกคนจึงเข้าใจตรงกัน</div></div>
+
+        <h2>2. push โปรเจกต์ขึ้น GitHub ครั้งแรก</h2>
+        <p>สมมติคุณมี repo ในเครื่อง (commit ไปบ้างแล้ว) และเพิ่งสร้าง repo เปล่าบน GitHub ขั้นตอนเชื่อมทั้งสองเข้าด้วยกันมี 4 บรรทัด ทำครั้งเดียวต่อโปรเจกต์</p>
+        <pre><code><span class="tok-cmt"># 1) บอก local ว่า remote ชื่อ origin อยู่ที่ URL นี้</span>
+<span class="tok-cmd">git</span> remote add origin https://github.com/your-name/your-repo.git
+
+<span class="tok-cmt"># 2) ตั้งชื่อ branch ปัจจุบันให้เป็น main (มาตรฐานของ GitHub)</span>
+<span class="tok-cmd">git</span> branch <span class="tok-flag">-M</span> main
+
+<span class="tok-cmt"># 3) push ครั้งแรก: -u ผูก local main เข้ากับ origin/main</span>
+<span class="tok-cmd">git</span> push <span class="tok-flag">-u</span> origin main
+<span class="tok-out">Enumerating objects: 6, done.</span>
+<span class="tok-out">To https://github.com/your-name/your-repo.git</span>
+<span class="tok-out"> * [new branch]      main -&gt; main</span>
+<span class="tok-out">branch 'main' set up to track 'origin/main'.</span></code></pre>
+
+        <p>หลังจากนั้น เพราะ <code>-u</code> (ย่อจาก <code>--set-upstream</code>) ผูก local <code>main</code> ไว้กับ <code>origin/main</code> แล้ว ครั้งต่อ ๆ ไปคุณพิมพ์สั้นได้เลย:</p>
+        <pre><code><span class="tok-cmd">git</span> add .
+<span class="tok-cmd">git</span> commit <span class="tok-flag">-m</span> <span class="tok-out">"add feature"</span>
+<span class="tok-cmd">git</span> push          <span class="tok-cmt"># ไม่ต้องระบุ origin main อีก Git จำให้</span></code></pre>
+
+        <div class="callout warn"><span class="ico">⚠️</span><div><strong>git push ไม่ใช่ git commit:</strong> commit บันทึกลง local เท่านั้น งานของคุณยัง <em>ไม่</em> อยู่บน GitHub จนกว่าจะ <code>push</code> ถ้าลืม push เพื่อนจะไม่เห็นงานคุณ และไม่มี backup บนคลาวด์</div></div>
+        <div class="callout note"><span class="ico">🔒</span><div>HTTPS URL จะให้ใส่ <strong>Personal Access Token</strong> แทนรหัสผ่าน (GitHub ปิดการ auth ด้วย password แล้ว) หรือใช้ <strong>SSH URL</strong> (<code>git@github.com:...</code>) กับ SSH key ก็ได้ — สะดวกกว่าเพราะไม่ต้องกรอกทุกครั้ง</div></div>
+
+        <p>ภาพรวมของ commit ที่ local กับ remote หลัง push ครั้งแรก: ทั้งสองฝั่งชี้ที่ commit เดียวกัน</p>
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ขั้นที่ 1 — ก่อน push: commit อยู่แค่ใน local เท่านั้น",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"add readme"}
+             ]},
+            {"head":"main","caption":"ขั้นที่ 2 — หลัง git push: origin/main ตามมาชี้ commit เดียวกัน (ซิงก์แล้ว)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"add readme"},
+               {"id":"o2","branch":"origin","parents":["b2"],"msg":"origin/main → ตามทัน"}
+             ]}
+          ]
+          </script>
+        </div>
+
+        <h2>3. clone: ดึงทั้ง repo ลงมา</h2>
+        <p>ถ้า repo อยู่บน GitHub อยู่แล้ว (ของคุณเองหรือของคนอื่นที่เปิดสาธารณะ) คุณไม่ต้อง <code>init</code> เอง แค่ <code>clone</code> ก็ได้ทั้งประวัติ commit + ตั้ง <code>origin</code> ให้อัตโนมัติ + checkout branch หลักให้พร้อมทำงาน</p>
+        <pre><code><span class="tok-cmd">git</span> clone https://github.com/some-org/cool-project.git
+<span class="tok-out">Cloning into 'cool-project'...</span>
+<span class="tok-out">remote: Enumerating objects: 240, done.</span>
+<span class="tok-out">Receiving objects: 100% (240/240), done.</span>
+
+<span class="tok-cmd">cd</span> cool-project
+<span class="tok-cmd">git</span> remote <span class="tok-flag">-v</span>          <span class="tok-cmt"># origin ถูกตั้งให้แล้วโดยอัตโนมัติ</span>
+<span class="tok-out">origin  https://github.com/some-org/cool-project.git (fetch)</span>
+<span class="tok-out">origin  https://github.com/some-org/cool-project.git (push)</span></code></pre>
+
+        <h2>4. fork: สำเนา repo ภายใต้บัญชีเรา</h2>
+        <p>ถ้าอยากแก้ repo ของ <em>คนอื่น</em> ที่คุณไม่มีสิทธิ์ push คุณ <strong>fork</strong> ก่อน — กดปุ่มบนหน้าเว็บ GitHub เพื่อสร้างสำเนา repo นั้นไว้ใต้บัญชีคุณเอง จากนั้นค่อย clone สำเนานั้นลงมาทำงาน แก้เสร็จก็เปิด Pull Request กลับไปยังต้นฉบับ</p>
+
+        <table>
+          <thead><tr><th></th><th>git clone</th><th>fork</th></tr></thead>
+          <tbody>
+            <tr><td><strong>ทำที่ไหน</strong></td><td>คำสั่งในเครื่อง (CLI)</td><td>ปุ่มบนหน้าเว็บ GitHub</td></tr>
+            <tr><td><strong>สำเนาไปอยู่ไหน</strong></td><td>ลงเครื่อง local ของคุณ</td><td>เป็น repo ใหม่ใต้บัญชี GitHub ของคุณ</td></tr>
+            <tr><td><strong>สิทธิ์ push</strong></td><td>ต้องมีสิทธิ์ใน repo ต้นทางอยู่แล้ว</td><td>คุณเป็นเจ้าของสำเนา push ได้เต็มที่</td></tr>
+            <tr><td><strong>ใช้เมื่อ</strong></td><td>repo ของตัวเอง/ทีมที่มีสิทธิ์</td><td>อยากร่วม contribute repo สาธารณะของคนอื่น</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div>วงจร open-source ทั่วไป: <strong>fork → clone สำเนา → สร้าง branch → commit → push ขึ้น fork ของตัวเอง → เปิด Pull Request ไปยัง repo ต้นฉบับ</strong></div></div>
+
+        <h2>5. Pull Request: เสนอ merge + review + discussion</h2>
+        <p><strong>Pull Request (PR)</strong> ไม่ใช่คำสั่ง Git แต่เป็นฟีเจอร์ของ GitHub มันคือการ "ยื่นเรื่องขอ merge" branch ของคุณเข้า branch หลัก พร้อมพื้นที่ให้ทีมรีวิวโค้ด คอมเมนต์ทีละบรรทัด ถกเถียง และให้ CI รันทดสอบ ก่อนกดรวมจริง — เป็นหัวใจของการทำงานร่วมกันบน GitHub</p>
+        <pre><code><span class="tok-cmt"># flow ฝั่ง local ก่อนเปิด PR</span>
+<span class="tok-cmd">git</span> switch <span class="tok-flag">-c</span> feature/login
+<span class="tok-cmt"># ...แก้โค้ด แล้ว add/commit...</span>
+<span class="tok-cmd">git</span> push <span class="tok-flag">-u</span> origin feature/login
+<span class="tok-out">remote: Create a pull request for 'feature/login' on GitHub by visiting:</span>
+<span class="tok-out">remote:   https://github.com/you/repo/pull/new/feature/login</span></code></pre>
+        <p>คลิกลิงก์นั้นจะพาไปหน้าสร้าง PR บน GitHub กรอกคำอธิบาย เลือก reviewer แล้วเปิด PR ทีมรีวิว เห็นชอบ → กด <strong>Merge</strong> งานของคุณก็เข้า <code>main</code> วงจรของ PR:</p>
+
+        <svg class="diagram" viewBox="0 0 720 150" role="img" aria-label="ขั้นตอนของ Pull Request จาก branch ไปจนถึง merge">
+          <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker></defs>
+          <rect class="node" x="10"  y="50" width="150" height="56" rx="10"/>
+          <rect class="node" x="200" y="50" width="150" height="56" rx="10"/>
+          <rect class="node" x="390" y="50" width="150" height="56" rx="10"/>
+          <rect class="node" x="580" y="50" width="130" height="56" rx="10"/>
+          <text class="label" x="85"  y="74" text-anchor="middle" font-size="13" font-weight="700">push branch</text>
+          <text class="muted" x="85"  y="92" text-anchor="middle" font-size="11">feature/...</text>
+          <text class="label" x="275" y="74" text-anchor="middle" font-size="13" font-weight="700">เปิด PR</text>
+          <text class="muted" x="275" y="92" text-anchor="middle" font-size="11">เสนอ merge</text>
+          <text class="label" x="465" y="74" text-anchor="middle" font-size="13" font-weight="700">Review</text>
+          <text class="muted" x="465" y="92" text-anchor="middle" font-size="11">comment + CI</text>
+          <text class="label" x="645" y="74" text-anchor="middle" font-size="13" font-weight="700">Merge</text>
+          <text class="muted" x="645" y="92" text-anchor="middle" font-size="11">เข้า main</text>
+          <line class="edge primary" x1="162" y1="78" x2="198" y2="78" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar3)"/>
+          <line class="edge primary" x1="352" y1="78" x2="388" y2="78" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar3)"/>
+          <line class="edge primary" x1="542" y1="78" x2="578" y2="78" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar3)"/>
+        </svg>
+
+        <div class="callout tip"><span class="ico">📝</span><div><strong>PR ที่ดีเล่าเรื่อง:</strong> เขียนว่าแก้อะไร ทำไม ทดสอบยังไง — รีวิวเวอร์ (และตัวคุณเองในอีก 6 เดือน) จะขอบคุณ commit message สั้นกระชับ แต่ PR description คือที่อธิบาย "ภาพใหญ่"</div></div>
+
+        <h2>6. README: หน้าตาแรกของ repo</h2>
+        <p>ไฟล์ <code>README.md</code> ที่ root ของ repo จะถูก GitHub เรนเดอร์เป็นหน้าแรกอัตโนมัติ มันคือ "หน้าร้าน" ของโปรเจกต์ — บอกว่าโปรเจกต์คืออะไร ติดตั้ง/รันยังไง contribute ยังไง เขียนด้วย Markdown</p>
+        <pre><code><span class="tok-cmt"># README.md (Markdown)</span>
+<span class="tok-out"># Cool Project</span>
+<span class="tok-out">เครื่องมือช่วย ... อธิบายสั้น ๆ ว่าโปรเจกต์ทำอะไร</span>
+
+<span class="tok-out">## Install</span>
+<span class="tok-out">    npm install</span>
+
+<span class="tok-out">## Usage</span>
+<span class="tok-out">    npm start</span></code></pre>
+
+        <h2>7. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="origin คือชื่อเล่น (alias) มาตรฐานที่ชี้ไปยัง URL ของ remote repo หลัก — ไม่ใช่คำสงวน แต่เป็นธรรมเนียมที่ทุกคนใช้ตรงกัน">
+          <div class="quiz-q">Q1. <code>origin</code> ใน Git หมายถึงอะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">branch แรกของทุก repo</button>
+            <button class="quiz-opt">ชื่อเล่นมาตรฐานที่ชี้ไปยัง URL ของ remote repo หลัก</button>
+            <button class="quiz-opt">โฟลเดอร์ .git ในเครื่อง local</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="Pull Request เป็นฟีเจอร์ของ GitHub สำหรับเสนอ merge พร้อม code review และ discussion ก่อนรวมจริง ไม่ใช่คำสั่งของ Git">
+          <div class="quiz-q">Q2. ข้อใดอธิบาย <strong>Pull Request</strong> ได้ถูกต้อง?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">คำสั่ง Git ที่ดึง commit ล่าสุดจาก remote ลงเครื่อง</button>
+            <button class="quiz-opt">วิธีลบ branch บนเซิร์ฟเวอร์ทิ้ง</button>
+            <button class="quiz-opt">ฟีเจอร์ของ GitHub สำหรับเสนอ merge พร้อม review และ discussion</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>8. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> push โปรเจกต์จริงของคุณขึ้น GitHub ครั้งแรก
+          <ol>
+            <li>มี repo ในเครื่องที่ commit แล้วอย่างน้อย 1 ครั้ง (ถ้ายังไม่มี: <code>git init</code> → สร้างไฟล์ → <code>git add .</code> → <code>git commit -m "init"</code>)</li>
+            <li>เข้า github.com กดปุ่ม <strong>New repository</strong> สร้าง repo เปล่า (ยังไม่ต้องติ๊ก Add README เพื่อเลี่ยงประวัติชนกัน) แล้วคัดลอก URL</li>
+            <li>ในเครื่อง: <code>git remote add origin &lt;url&gt;</code> แล้วเช็กด้วย <code>git remote -v</code></li>
+            <li><code>git branch -M main</code> เพื่อให้ชื่อ branch ตรงกับ GitHub</li>
+            <li><code>git push -u origin main</code> — ใส่ token/credential แล้วรีเฟรชหน้า GitHub จะเห็นไฟล์ขึ้นมา</li>
+            <li>เพิ่มไฟล์ <code>README.md</code> → <code>git add</code> → <code>git commit</code> → <code>git push</code> (คราวนี้สั้นได้) แล้วดูว่า GitHub เรนเดอร์ README เป็นหน้าแรก</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นวงจร local → push → remote ครบ และเข้าใจว่าทำไมครั้งที่สอง push สั้นกว่าครั้งแรก
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>remote</strong> คือ repo อีกชุดบนเซิร์ฟเวอร์ — <strong>GitHub</strong> โฮสต์ remote บนคลาวด์พร้อมเครื่องมือ collaboration</li>
+          <li>เชื่อมครั้งแรก: <code>git remote add origin &lt;url&gt;</code> → <code>git branch -M main</code> → <code>git push -u origin main</code> หลังจากนั้นแค่ <code>git push</code></li>
+          <li><strong>clone</strong> = ดึง repo ทั้งชุดลงเครื่อง (ตั้ง origin ให้เอง); <strong>fork</strong> = สำเนา repo คนอื่นมาไว้ใต้บัญชีเราเพื่อ contribute</li>
+          <li><strong>Pull Request</strong> = เสนอ merge + code review + discussion ก่อนรวมเข้า main; <strong>README.md</strong> คือหน้าแรกของ repo</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "05-github" });</script>
+</body>
+</html>

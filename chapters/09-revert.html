@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 9 · Revert — Git Mastery</title>
+  <meta name="description" content="git revert สร้าง commit ใหม่ที่กลับด้านการเปลี่ยนแปลง ปลอดภัยกับประวัติที่ push แล้ว ต่างจาก reset ที่เขียนประวัติใหม่ พร้อมวิธี revert merge ด้วย -m" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 9</span>
+          <h1>Revert</h1>
+          <p class="lead muted">เวลา commit เสียหลุดขึ้น branch ที่ทีมแชร์กันแล้ว คุณ "ลบ" มันทิ้งเฉย ๆ ไม่ได้ — ต้องยกเลิกแบบที่ทุกคนตามทันและประวัติไม่พัง นี่คือหน้าที่ของ <code>git revert</code></p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า <code>git revert</code> สร้าง <strong>commit ใหม่ที่กลับด้าน</strong> ของ commit เป้าหมาย โดยประวัติเดิมยังอยู่ครบ</li>
+              <li>รู้ว่าทำไม revert ถึง <strong>ปลอดภัยกับ history ที่ push/แชร์แล้ว</strong> ในขณะที่ <code>reset</code> ไม่ปลอดภัย</li>
+              <li>เปรียบเทียบ <strong>reset vs revert</strong> และเลือกใช้ให้ถูกสถานการณ์</li>
+              <li>revert <strong>merge commit</strong> ด้วย flag <code>-m</code> ได้อย่างถูกต้อง</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. revert ทำอะไร: "เพิ่ม" ไม่ใช่ "ลบ"</h2>
+        <p><code>git revert &lt;commit&gt;</code> ไม่ได้ลบ commit ที่ผิดออกจากประวัติ แต่จะคำนวณการเปลี่ยนแปลงของ commit นั้นแล้ว <strong>สร้าง commit ใหม่ที่ทำตรงกันข้าม</strong> ต่อท้ายเข้าไป ถ้า commit เดิมเพิ่มบรรทัด revert ก็จะลบบรรทัดนั้น ถ้าเดิมลบไฟล์ revert ก็เอาไฟล์กลับมา ผลลัพธ์สุดท้ายเหมือน commit ที่ผิดไม่เคยเกิดขึ้น แต่ <strong>ร่องรอยทั้งหมดยังอยู่ในประวัติ</strong></p>
+        <div class="callout note"><span class="ico">💡</span><div><strong>คิดง่าย ๆ:</strong> reset = ย้อนเวลา (ลบบรรทัดในไดอารี) · revert = เขียนบรรทัดใหม่ว่า "ขอยกเลิกที่เขียนไปเมื่อวาน" ไดอารีหน้าเดิมยังอยู่ครบ</div></div>
+
+        <svg class="diagram" viewBox="0 0 740 210" role="img" aria-label="แผนภาพ revert: commit C ที่ buggy ถูกยกเลิกด้วย commit C' ที่เพิ่มต่อท้าย ประวัติเดิมยังอยู่">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker></defs>
+          <circle class="node" cx="70"  cy="90" r="26"/>
+          <circle class="node" cx="230" cy="90" r="26"/>
+          <circle class="node" cx="390" cy="90" r="26"/>
+          <circle class="node" cx="550" cy="90" r="26"/>
+          <text class="label" x="70"  y="96" text-anchor="middle" font-weight="700">A</text>
+          <text class="label" x="230" y="96" text-anchor="middle" font-weight="700">B</text>
+          <text class="label" x="390" y="96" text-anchor="middle" font-weight="700">C</text>
+          <text class="accent" x="550" y="96" text-anchor="middle" font-weight="700">C'</text>
+          <text class="muted"   x="390" y="140" text-anchor="middle" font-size="12">commit ที่ buggy</text>
+          <text class="accent"  x="550" y="140" text-anchor="middle" font-size="12">revert ของ C (กลับด้าน)</text>
+          <line class="edge primary" x1="96"  y1="90" x2="202" y2="90" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge primary" x1="256" y1="90" x2="362" y2="90" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge accent"  x1="416" y1="90" x2="522" y2="90" stroke="var(--accent)"  stroke-width="2" marker-end="url(#ar)"/>
+          <text class="muted" x="660" y="94" text-anchor="middle" font-size="12">HEAD</text>
+          <line class="edge" x1="624" y1="90" x2="578" y2="90" stroke="var(--text-muted)" stroke-width="2" marker-end="url(#ar)"/>
+        </svg>
+
+        <h2>2. ใช้งานพื้นฐาน</h2>
+        <p>เลือก commit ที่อยากยกเลิกแล้วสั่ง revert ได้เลย Git จะเปิด editor ให้ใส่ข้อความ commit (ค่าเริ่มต้นคือ <code>Revert "..."</code>) จากนั้นจะมี commit ใหม่โผล่บนยอด branch</p>
+        <pre><code><span class="tok-cmd">git</span> log <span class="tok-flag">--oneline</span>
+<span class="tok-out">c3d4e5f (HEAD -&gt; main) add checkout button</span>
+<span class="tok-out">b2c3d4e break login form        </span><span class="tok-cmt"># &lt;- commit ที่ผิด</span>
+<span class="tok-out">a1b2c3d init project</span>
+
+<span class="tok-cmd">git</span> revert b2c3d4e          <span class="tok-cmt"># ยกเลิกเฉพาะ commit นี้</span>
+<span class="tok-out">[main 9f8e7d6] Revert "break login form"</span>
+<span class="tok-out"> 1 file changed, 4 insertions(+), 4 deletions(-)</span>
+
+<span class="tok-cmd">git</span> log <span class="tok-flag">--oneline</span>
+<span class="tok-out">9f8e7d6 (HEAD -&gt; main) Revert "break login form"</span>  <span class="tok-cmt"># commit ใหม่</span>
+<span class="tok-out">c3d4e5f add checkout button</span>
+<span class="tok-out">b2c3d4e break login form</span>                            <span class="tok-cmt"># ยังอยู่!</span>
+<span class="tok-out">a1b2c3d init project</span></code></pre>
+        <div class="callout note"><span class="ico">⚠️</span><div>คำสั่ง <code>git revert</code>, <code>git reset</code>, <code>git push</code> และอื่น ๆ ที่นอกเหนือชุดพื้นฐาน <strong>terminal จำลองในเว็บนี้ยังไม่รองรับ</strong> ให้ลองในเครื่องจริงตาม workshop ท้ายบท</div></div>
+
+        <h2>3. ทำไมต้องใช้ revert บน shared branch</h2>
+        <p>หัวใจอยู่ตรงนี้: เมื่อคุณ <code>push</code> commit ขึ้น remote แล้ว เพื่อนร่วมทีมอาจ <code>pull</code> ไปแล้ว — commit นั้นกลายเป็น <strong>ประวัติสาธารณะ</strong> ที่หลายคนถืออยู่ ถ้าคุณใช้ <code>reset</code> เพื่อ "ลบ" มัน ประวัติบนเครื่องคุณกับบน remote จะแตกกัน เวลา push ต้องใช้ <code>--force</code> ซึ่งจะไป<strong>เขียนทับประวัติของคนอื่น</strong> ทำให้ commit ของเพื่อนหายหรือ history พังกันทั้งทีม</p>
+        <p>revert แก้ปัญหานี้เพราะมันแค่ <strong>เพิ่ม commit ใหม่ต่อท้าย</strong> ไม่แตะของเดิม ทุกคนแค่ <code>pull</code> ตามปกติก็ได้ commit ยกเลิกไปด้วย ไม่มีใครต้องแก้ประวัติในเครื่องตัวเอง</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+           {"head":"main","caption":"ขั้นที่ 1 — commit C (\"break login\") ถูก push ขึ้นไปแล้ว ทุกคน pull ไปแล้ว ลบทิ้งตรง ๆ ไม่ได้",
+            "commits":[
+              {"id":"a1","branch":"main","parents":[],"msg":"init"},
+              {"id":"b2","branch":"main","parents":["a1"],"msg":"add page"},
+              {"id":"c3","branch":"main","parents":["b2"],"msg":"break login (buggy)"}
+            ]},
+           {"head":"main","caption":"ขั้นที่ 2 — git revert c3 เพิ่ม commit C' ที่กลับด้านของ C ต่อท้าย ประวัติเดิม (C) ยังอยู่ครบ ปลอดภัยกับทีม",
+            "commits":[
+              {"id":"a1","branch":"main","parents":[],"msg":"init"},
+              {"id":"b2","branch":"main","parents":["a1"],"msg":"add page"},
+              {"id":"c3","branch":"main","parents":["b2"],"msg":"break login (buggy)"},
+              {"id":"c3r","branch":"main","parents":["c3"],"msg":"Revert break login"}
+            ]}
+          ]
+          </script>
+        </div>
+
+        <h2>4. reset vs revert</h2>
+        <p>ทั้งคู่ใช้ "ย้อน" งาน แต่กลไกคนละแบบและเหมาะกับคนละสถานการณ์</p>
+        <table>
+          <thead><tr><th></th><th><code>git reset</code></th><th><code>git revert</code></th></tr></thead>
+          <tbody>
+            <tr><td><strong>กลไก</strong></td><td>ย้าย HEAD/branch ถอยหลัง — <strong>เขียนประวัติใหม่</strong></td><td><strong>เพิ่ม commit ใหม่</strong> ที่กลับด้าน</td></tr>
+            <tr><td><strong>ประวัติเดิม</strong></td><td>หายไป (commit หลุดออกจากสาย)</td><td>ยังอยู่ครบ</td></tr>
+            <tr><td><strong>ปลอดภัยกับ public history?</strong></td><td>❌ ไม่ — ต้อง <code>push --force</code> พังของทีม</td><td>✅ ใช่ — push ปกติ ทุกคน pull ตาม</td></tr>
+            <tr><td><strong>เหมาะกับ</strong></td><td>commit ที่ยัง <strong>local</strong> ยังไม่ push</td><td>commit ที่ <strong>push/แชร์</strong>แล้ว</td></tr>
+            <tr><td><strong>ผลกับ working dir</strong></td><td>มี <code>--soft/--mixed/--hard</code> ให้เลือก</td><td>เปลี่ยนไฟล์ผ่าน commit ใหม่</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div><strong>กฎง่าย ๆ:</strong> ถ้า commit ยังอยู่แค่ในเครื่องเรา ใช้ <code>reset</code> ได้ ถ้ามัน push ขึ้นไปแล้ว/แชร์กับทีมแล้ว ใช้ <code>revert</code> เสมอ</div></div>
+
+        <h2>5. revert merge commit ต้องใช้ <code>-m</code></h2>
+        <p>merge commit มี <strong>parent สองตัว</strong> (สาย main เดิม + สาย feature ที่ถูก merge เข้ามา) Git จึงไม่รู้เองว่าจะให้ "กลับด้าน" โดยอ้างอิงสายไหนเป็นหลัก คุณต้องบอกด้วย <code>-m</code> ตามด้วย <strong>เลข parent</strong> (เริ่มที่ 1) ที่จะใช้เป็น mainline</p>
+        <pre><code><span class="tok-cmd">git</span> revert <span class="tok-flag">-m</span> 1 &lt;merge-commit&gt;   <span class="tok-cmt"># เก็บสาย parent ที่ 1 (มักเป็น main) ยกเลิกสิ่งที่ feature เพิ่มเข้ามา</span></code></pre>
+        <p>โดยทั่วไป <code>-m 1</code> หมายถึง "ยกเลิกการเปลี่ยนแปลงทั้งหมดที่ branch ที่ถูก merge เข้ามานำมา" ส่วน <code>-m 2</code> จะอ้างอิงอีกสายแทน เลือกผิด = revert ผิดสาย</p>
+        <div class="callout warn"><span class="ico">⚠️</span><div><strong>ข้อควรระวัง:</strong> หลัง revert merge ไปแล้ว ถ้าอยากเอา feature กลับเข้ามาอีกครั้ง คุณ <strong>merge สาย feature เดิมซ้ำตรง ๆ ไม่ได้</strong> (Git มองว่า merge ไปแล้ว) ต้อง "revert ตัว revert" หรือ rebase feature ใหม่ — ทางที่ดีที่สุดคือเลี่ยงปัญหาด้วยการ revert ให้น้อยครั้งและเข้าใจก่อนทำ</div></div>
+
+        <h2>6. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="commit ถูก push ขึ้น remote และทีม pull ไปแล้ว = public history. reset ต้อง push --force ซึ่งเขียนทับประวัติของคนอื่น จึงต้องใช้ revert ที่แค่เพิ่ม commit ใหม่ต่อท้าย">
+          <div class="quiz-q">Q1. คุณ push commit ที่มีบั๊กขึ้น branch <code>main</code> ที่ทีมใช้ร่วมกันไปแล้ว และเพื่อน pull ไปแล้ว ควรยกเลิกด้วยอะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt"><code>git reset --hard</code> แล้ว <code>git push --force</code></button>
+            <button class="quiz-opt"><code>git revert &lt;commit&gt;</code> แล้ว <code>git push</code> ตามปกติ</button>
+            <button class="quiz-opt">ลบไฟล์ <code>.git</code> แล้ว init ใหม่</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="git revert ไม่ลบ commit เดิม แต่สร้าง commit ใหม่ที่กลับด้านการเปลี่ยนแปลงต่อท้าย ทำให้ประวัติเดิมยังอยู่ครบ">
+          <div class="quiz-q">Q2. ผลของ <code>git revert &lt;commit&gt;</code> ต่อประวัติคืออะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">ลบ commit เป้าหมายออกจากประวัติถาวร</button>
+            <button class="quiz-opt">ย้าย HEAD ถอยกลับไป commit ก่อนหน้า</button>
+            <button class="quiz-opt">สร้าง commit ใหม่ที่กลับด้าน ประวัติเดิมยังอยู่</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>7. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> จำลองการ "ยกเลิก commit ที่หลุดขึ้นไปแล้ว" ด้วย revert ในเครื่องจริง สังเกต <code>git log --oneline</code> ทุกขั้น
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → สร้างไฟล์ <code>app.txt</code> ใส่ <code>v1</code> แล้ว <code>git add . &amp;&amp; git commit -m "init"</code></li>
+            <li>แก้ <code>app.txt</code> เป็น <code>v2 (buggy)</code> → <code>git commit -am "buggy change"</code></li>
+            <li><code>git log --oneline</code> จด hash ของ commit "buggy change" ไว้</li>
+            <li><code>git revert &lt;hash&gt;</code> (กด save/close ใน editor เพื่อรับข้อความ commit เริ่มต้น)</li>
+            <li>เปิด <code>app.txt</code> ดู → เนื้อหากลับเป็น <code>v1</code> แล้ว แต่ <code>git log --oneline</code> ยังเห็นทั้ง "buggy change" และ "Revert ..." ครบ</li>
+            <li><strong>โบนัส:</strong> ลอง <code>git revert HEAD</code> อีกครั้ง (revert ตัว revert) แล้วดูว่าเนื้อหากลับไปเป็น <code>v2</code> อีกที — เข้าใจว่าทุกการยกเลิกคือ commit ใหม่เสมอ</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นว่า revert ทำให้ "ยกเลิกได้โดยไม่ลบประวัติ" และทุกขั้นย้อนกลับได้
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><code>git revert &lt;commit&gt;</code> สร้าง <strong>commit ใหม่ที่กลับด้าน</strong> ของ commit เป้าหมาย — ไม่ลบของเดิม ประวัติยังครบ</li>
+          <li>ปลอดภัยกับ <strong>history ที่ push/แชร์แล้ว</strong> เพราะแค่เพิ่ม commit ต่อท้าย push ปกติ ทุกคน pull ตามได้</li>
+          <li><strong>reset</strong> เขียนประวัติใหม่ — ใช้ได้กับ commit ที่ยัง local เท่านั้น ห้ามใช้กับ commit สาธารณะ</li>
+          <li>revert <strong>merge commit</strong> ต้องระบุ mainline ด้วย <code>-m &lt;เลข parent&gt;</code> (มักเป็น <code>-m 1</code>)</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "09-revert" });</script>
+</body>
+</html>

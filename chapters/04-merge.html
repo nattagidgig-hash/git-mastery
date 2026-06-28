@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 4 · Merge — Git Mastery</title>
+  <meta name="description" content="รวมสายงานด้วย git merge: fast-forward vs three-way merge, merge commit ที่มีสอง parent, --no-ff และเหตุผลที่ merge ไม่ทำลายประวัติ" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 4</span>
+          <h1>Merge</h1>
+          <p class="lead muted">เมื่อแตก branch ไปทำงานแล้ว ก็ต้องมีวันรวมกลับ <code>git merge</code> คือการนำงานสองสายมาบรรจบ บทนี้จะเห็นว่า Git ตัดสินใจรวมยังไง และทำไมการ merge ถึง "ต่อ" ประวัติ ไม่ใช่ "ทับ"</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>แยกแยะ <strong>fast-forward</strong> กับ <strong>three-way merge</strong> และรู้ว่า Git เลือกแบบไหนเมื่อไหร่</li>
+              <li>เข้าใจ <strong>merge commit</strong> ที่มี <strong>สอง parent</strong> และความหมายของมัน</li>
+              <li>ใช้ <code>git merge --no-ff</code> เพื่อรักษาประวัติสายงานให้อ่านออก</li>
+              <li>เห็นชัดว่า merge <strong>ไม่ทำลาย</strong> commit เดิม — ทุก commit ยังอยู่ครบ</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. Merge คืออะไร</h2>
+        <p>หลังจากเราแตก branch ไปทำ feature สาย <code>main</code> กับสาย feature ก็เดินแยกกัน <code>git merge &lt;branch&gt;</code> คือคำสั่งที่บอก Git ว่า "เอางานจาก branch นั้น มารวมเข้ากับ branch ที่ฉันยืนอยู่ตอนนี้ (HEAD)" จุดสำคัญคือ <strong>คุณ merge เข้าหา branch ที่กำลัง checkout อยู่</strong> ไม่ใช่กลับกัน</p>
+        <div class="callout note"><span class="ico">💡</span><div><strong>กฎจำง่าย:</strong> ยืนที่ปลายทางก่อน แล้วค่อย merge ต้นทางเข้ามา — เช่นจะเอา <code>feature</code> เข้า <code>main</code> ต้อง <code>git switch main</code> ก่อน แล้วจึง <code>git merge feature</code></div></div>
+
+        <h2>2. สองแบบของการ merge</h2>
+        <p>Git ดูจากตำแหน่งของสองสายแล้วเลือกวิธีรวมให้อัตโนมัติ มีสองแบบหลัก:</p>
+
+        <svg class="diagram" viewBox="0 0 720 280" role="img" aria-label="แผนภาพเปรียบเทียบ fast-forward merge กับ three-way merge">
+          <!-- Fast-forward side -->
+          <text class="label" x="170" y="30" text-anchor="middle" font-weight="700">Fast-forward</text>
+          <text class="muted" x="170" y="50" text-anchor="middle" font-size="12">main ไม่มี commit ใหม่ → แค่เลื่อน pointer</text>
+          <line class="edge" x1="60" y1="100" x2="280" y2="100" stroke="var(--text-muted)" stroke-width="2"/>
+          <circle class="node" cx="70"  cy="100" r="14"/>
+          <circle class="node" cx="170" cy="100" r="14"/>
+          <circle class="node" cx="270" cy="100" r="14"/>
+          <text class="muted" x="70"  y="104" text-anchor="middle" font-size="11">A</text>
+          <text class="muted" x="170" y="104" text-anchor="middle" font-size="11">B</text>
+          <text class="muted" x="270" y="104" text-anchor="middle" font-size="11">C</text>
+          <text class="primary" x="270" y="135" text-anchor="middle" font-size="11" font-weight="600">main เลื่อนมาที่ C</text>
+
+          <!-- divider -->
+          <line x1="360" y1="20" x2="360" y2="260" stroke="var(--border)" stroke-width="1"/>
+
+          <!-- Three-way side -->
+          <text class="label" x="540" y="30" text-anchor="middle" font-weight="700">Three-way merge</text>
+          <text class="muted" x="540" y="50" text-anchor="middle" font-size="12">สองสายแตกต่างกัน → สร้าง merge commit</text>
+          <circle class="node" cx="410" cy="100" r="14"/>
+          <text class="muted" x="410" y="104" text-anchor="middle" font-size="11">A</text>
+          <!-- main lane -->
+          <circle class="node" cx="510" cy="70" r="14"/>
+          <text class="muted" x="510" y="74" text-anchor="middle" font-size="11">B</text>
+          <!-- feature lane -->
+          <circle class="node" cx="510" cy="160" r="14"/>
+          <text class="muted" x="510" y="164" text-anchor="middle" font-size="11">D</text>
+          <!-- merge commit -->
+          <circle class="node primary" cx="640" cy="115" r="16"/>
+          <text class="label" x="640" y="119" text-anchor="middle" font-size="11" font-weight="700">M</text>
+          <line class="edge" x1="424" y1="93"  x2="497" y2="77"  stroke="var(--text-muted)" stroke-width="2"/>
+          <line class="edge" x1="424" y1="110" x2="497" y2="153" stroke="var(--accent)" stroke-width="2"/>
+          <line class="edge" x1="524" y1="78"  x2="626" y2="108" stroke="var(--text-muted)" stroke-width="2"/>
+          <line class="edge" x1="524" y1="153" x2="626" y2="124" stroke="var(--accent)" stroke-width="2"/>
+          <text class="accent" x="640" y="155" text-anchor="middle" font-size="11" font-weight="600">M มี 2 parents</text>
+        </svg>
+
+        <h2>3. Fast-forward merge</h2>
+        <p>เกิดขึ้นเมื่อ <strong>branch ปลายทางไม่มี commit ใหม่</strong> นับจากจุดที่แตก branch ออกไป กล่าวคือ <code>main</code> ยังอยู่ที่เดิม ส่วน <code>feature</code> เดินไปข้างหน้า เส้นทางจาก main ไป feature เป็นเส้นตรงไม่แตกแขนง Git จึงไม่ต้องสร้าง merge commit ใหม่ — มันแค่ <strong>เลื่อน pointer ของ main ไปข้างหน้า</strong>ให้ตรงกับ feature เท่านั้น</p>
+        <pre><code><span class="tok-cmd">git</span> switch main
+<span class="tok-cmd">git</span> merge feature
+<span class="tok-out">Updating b2..d4</span>
+<span class="tok-out">Fast-forward</span>          <span class="tok-cmt"># ไม่มี merge commit — แค่เลื่อน pointer</span>
+<span class="tok-out"> readme.txt | 2 +-</span></code></pre>
+        <div class="callout tip"><span class="ico">✅</span><div>Fast-forward สะอาดและไม่มี commit ส่วนเกิน แต่ข้อเสียคือ <strong>ประวัติจะมองไม่ออกว่าเคยมี branch แยกออกไป</strong> เพราะเส้นเป็นเส้นตรงล้วน</div></div>
+
+        <h2>4. Three-way merge</h2>
+        <p>เกิดขึ้นเมื่อ <strong>ทั้งสองสายต่างเดินหน้าไปคนละทาง</strong> หลังจุดแตก เช่น <code>main</code> มี commit ใหม่ และ <code>feature</code> ก็มี commit ใหม่ด้วย ตอนนี้ไม่มีเส้นตรงให้เลื่อนแล้ว Git จึงต้องดูสาม commit:</p>
+        <ul>
+          <li><strong>Base</strong> — commit บรรพบุรุษร่วม (จุดที่แตก branch กัน)</li>
+          <li><strong>ปลายของ main</strong> — สถานะปัจจุบันของสายที่เรายืนอยู่</li>
+          <li><strong>ปลายของ feature</strong> — สถานะที่จะรวมเข้ามา</li>
+        </ul>
+        <p>Git เทียบทั้งสามแล้วรวมการเปลี่ยนแปลง จากนั้นสร้าง <strong>merge commit</strong> ขึ้นมาใหม่หนึ่งตัว ที่ <strong>มี parent สองตัว</strong> (ทั้งปลาย main และปลาย feature) นี่คือ commit ชนิดเดียวที่มีมากกว่าหนึ่ง parent</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+           {"head":"feature","caption":"ขั้น 1 — ก่อน merge: main กับ feature แตกออกจาก b2 แล้วต่างเดินหน้า สองสายต่างกัน",
+            "commits":[
+              {"id":"a1","branch":"main","parents":[],"msg":"init"},
+              {"id":"b2","branch":"main","parents":["a1"],"msg":"base"},
+              {"id":"c3","branch":"main","parents":["b2"],"msg":"hotfix on main"},
+              {"id":"d4","branch":"feature","parents":["b2"],"msg":"add feature"},
+              {"id":"e5","branch":"feature","parents":["d4"],"msg":"polish feature"}
+            ]},
+           {"head":"main","caption":"ขั้น 2 — หลัง git merge feature: เกิด merge commit M ที่มี 2 parents (c3 และ e5) main เลื่อนมาที่ M ทุก commit เดิมยังอยู่ครบ",
+            "commits":[
+              {"id":"a1","branch":"main","parents":[],"msg":"init"},
+              {"id":"b2","branch":"main","parents":["a1"],"msg":"base"},
+              {"id":"c3","branch":"main","parents":["b2"],"msg":"hotfix on main"},
+              {"id":"d4","branch":"feature","parents":["b2"],"msg":"add feature"},
+              {"id":"e5","branch":"feature","parents":["d4"],"msg":"polish feature"},
+              {"id":"m6","branch":"main","parents":["c3","e5"],"msg":"Merge branch 'feature'"}
+            ]}
+          ]
+          </script>
+        </div>
+
+        <h2>5. fast-forward vs three-way — เทียบกัน</h2>
+        <table>
+          <thead><tr><th></th><th>Fast-forward</th><th>Three-way merge</th></tr></thead>
+          <tbody>
+            <tr><td><strong>เกิดเมื่อ</strong></td><td>ปลายทาง (main) ไม่มี commit ใหม่</td><td>ทั้งสองสายต่างมี commit ใหม่</td></tr>
+            <tr><td><strong>merge commit</strong></td><td>ไม่มี</td><td>มี (parent สองตัว)</td></tr>
+            <tr><td><strong>จำนวน parent</strong></td><td>—</td><td>2</td></tr>
+            <tr><td><strong>รูปร่างประวัติ</strong></td><td>เส้นตรง</td><td>แตกแขนงแล้วบรรจบ</td></tr>
+            <tr><td><strong>มองเห็น branch ในกราฟ</strong></td><td>ไม่เห็น</td><td>เห็นชัด</td></tr>
+            <tr><td><strong>โอกาส conflict</strong></td><td>ไม่มี</td><td>มีได้ (ถ้าแก้บรรทัดเดียวกัน)</td></tr>
+          </tbody>
+        </table>
+
+        <h2>6. <code>--no-ff</code>: บังคับให้มี merge commit เสมอ</h2>
+        <p>บางทีถึงจะ fast-forward ได้ เราก็อยากให้ประวัติ <strong>จดจำว่าเคยมี branch แยกออกไป</strong> เพื่อให้อ่านง่ายว่า "งานชุดนี้คือ feature เดียวกัน" ใช้ flag <code>--no-ff</code> (no fast-forward) บังคับให้ Git สร้าง merge commit แม้สถานการณ์จะ fast-forward ได้</p>
+        <pre><code><span class="tok-cmd">git</span> switch main
+<span class="tok-cmd">git</span> merge <span class="tok-flag">--no-ff</span> feature <span class="tok-cmt"># บังคับสร้าง merge commit</span>
+<span class="tok-out">Merge made by the 'ort' strategy.</span></code></pre>
+        <div class="callout tip"><span class="ico">✅</span><div>หลายทีมตั้งนโยบายให้ merge เข้า <code>main</code> ด้วย <code>--no-ff</code> เสมอ เพราะ merge commit หนึ่งตัวคือ "หมุดหมาย" ที่บอกว่า feature เข้ามาเมื่อไหร่ และ <code>git revert</code> ทั้ง feature ทีเดียวทำได้ง่ายกว่า</div></div>
+
+        <h2>7. merge ไม่ทำลายประวัติ</h2>
+        <p>นี่คือหัวใจของบทนี้: <code>merge</code> เป็น operation ที่ <strong>เพิ่ม</strong> commit เข้าไป (หรือเลื่อน pointer) ไม่เคย <strong>ลบหรือเขียนทับ</strong> commit เดิมเลย ทุก commit ของทั้งสองสายยังอยู่ใน <code>.git</code> ครบ พร้อม hash เดิม ต่างจาก <code>rebase</code> ที่สร้าง commit ใหม่ทับของเก่า</p>
+        <div class="callout note"><span class="ico">🛡️</span><div>เพราะ merge เป็น "ต่อเติม" ไม่ใช่ "เขียนใหม่" มันจึงปลอดภัยที่จะใช้บน branch ที่แชร์กับคนอื่น (เช่น <code>main</code> ที่ push ขึ้น remote แล้ว) — history ที่คนอื่นมีอยู่ไม่พังเพราะการ merge ของคุณ</div></div>
+
+        <h2>8. ลองเอง — Interactive Terminal</h2>
+        <p>เนื่องจาก simulator ทำ merge แบบ fast-forward เราจะลองเคสที่ <code>main</code> ไม่มี commit ใหม่: แตก branch ไปทำงาน แล้ว merge กลับ สังเกตคำว่า <code>Fast-forward</code></p>
+        <div data-terminal data-title="bash — ลอง fast-forward merge"
+             data-script='git init|echo "v1" > app.txt|git add .|git commit -m "init"|git switch -c feature'></div>
+        <div class="callout note"><span class="ico">⌨️</span><div>พิมพ์ต่อทีละบรรทัด: <code>echo "v2" &gt; app.txt</code> → <code>git add .</code> → <code>git commit -m "work on feature"</code> → <code>git switch main</code> → <code>git merge feature</code> แล้วดูว่ามันรายงาน <strong>Fast-forward</strong> เพราะ <code>main</code> ไม่ได้ขยับเลยตั้งแต่แตก branch</div></div>
+
+        <h2>9. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="fast-forward เกิดเมื่อ branch ปลายทางไม่มี commit ใหม่ Git จึงแค่เลื่อน pointer ไปข้างหน้าโดยไม่สร้าง merge commit">
+          <div class="quiz-q">Q1. Git จะทำ fast-forward merge เมื่อใด?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">เมื่อทั้งสองสายต่างมี commit ใหม่</button>
+            <button class="quiz-opt">เมื่อ branch ปลายทางไม่มี commit ใหม่นับจากจุดแตก</button>
+            <button class="quiz-opt">เมื่อใช้ flag --no-ff เสมอ</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="merge commit คือ commit ชนิดเดียวที่มี parent สองตัว คือปลายของทั้งสองสายที่ถูกรวมเข้าด้วยกัน">
+          <div class="quiz-q">Q2. merge commit จากการทำ three-way merge มี parent กี่ตัว?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">ไม่มี parent เลย</button>
+            <button class="quiz-opt">หนึ่งตัว เหมือน commit ทั่วไป</button>
+            <button class="quiz-opt">สองตัว — ปลายของทั้งสองสาย</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>10. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> สร้างทั้ง fast-forward และ three-way merge ด้วยตัวเองในเครื่องจริง เพื่อเห็นความต่างของกราฟ
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → สร้าง <code>app.txt</code> commit แรกบน <code>main</code></li>
+            <li><code>git switch -c feature</code> → แก้ไฟล์ → commit หนึ่งครั้ง</li>
+            <li><code>git switch main</code> → <code>git merge feature</code> → สังเกตคำว่า <em>Fast-forward</em></li>
+            <li>รีเซ็ตการทดลอง: แตก <code>git switch -c feature2</code> → commit บน feature2 หนึ่งครั้ง</li>
+            <li>กลับ <code>git switch main</code> → คราวนี้แก้ไฟล์อื่นแล้ว <strong>commit บน main ด้วย</strong> (ให้ main ขยับ)</li>
+            <li><code>git merge feature2</code> → ตอนนี้จะได้ <em>three-way merge</em> และเกิด merge commit</li>
+            <li>ปิดท้าย: <code>git log --oneline --graph</code> เทียบรูปร่างกราฟของสองเคส</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นด้วยตาว่าเงื่อนไข "main ขยับหรือไม่" คือสิ่งที่ตัดสินว่าจะ fast-forward หรือ three-way
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>Fast-forward</strong> เกิดเมื่อปลายทางไม่มี commit ใหม่ — Git แค่เลื่อน pointer ไม่มี merge commit</li>
+          <li><strong>Three-way merge</strong> เกิดเมื่อสองสายต่างกัน — Git สร้าง <strong>merge commit ที่มี 2 parents</strong></li>
+          <li><code>git merge --no-ff</code> บังคับสร้าง merge commit เพื่อเก็บประวัติว่าเคยมี branch แยก</li>
+          <li>merge <strong>ไม่ทำลายประวัติ</strong> — เพิ่ม commit เท่านั้น จึงปลอดภัยกับ branch ที่แชร์</li>
+          <li>คุณ merge <strong>เข้าหา</strong> branch ที่ checkout อยู่เสมอ — ยืนปลายทางก่อน แล้วค่อย <code>git merge &lt;source&gt;</code></li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "04-merge" });</script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 13 · AI Coding Workflow — Git Mastery</title>
+  <meta name="description" content="ใช้ Git ในยุค AI coding: spec-driven, commit เล็กและ atomic, branch ต่อ experiment, Pull Request + review, Git เป็น safety net, และลูป Spec→Architecture→Planning→Implementation→Review→Refactor→Release" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 13</span>
+          <h1>AI Coding Workflow</h1>
+          <p class="lead muted">บทปิดที่ร้อยทุกอย่างเข้าด้วยกัน ในยุคที่ AI ช่วยเขียนโค้ดได้เร็วมาก Git ไม่ได้หมดความสำคัญ แต่กลับสำคัญกว่าเดิม — มันคือ safety net, คือ context ให้ AI, และคือวินัยที่ทำให้คุณยังควบคุมโค้ดตัวเองได้</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>วาง workflow แบบ <strong>spec-driven</strong> — ให้ <code>PROJECT.md</code> เป็น single source of truth ก่อนปล่อย AI ลงมือ</li>
+              <li>ใช้ <strong>commit เล็กและ atomic</strong> + branch ต่อ experiment เพื่อ review/revert งานของ AI ได้เป็นจุด ๆ</li>
+              <li>ใช้ Git เป็น <strong>safety net</strong> เมื่อ AI แก้พัง: <code>revert</code> / <code>reflog</code> / <code>reset</code></li>
+              <li>เชื่อมทุกบทเข้าลูป <strong>Spec → Architecture → Planning → Implementation → Review → Refactor → Release</strong></li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. ทำไม Git ยิ่งสำคัญในยุค AI</h2>
+        <p>AI agent เขียนโค้ดได้เร็วและเยอะ — แต่มันก็แก้พังได้เร็วและเยอะเช่นกัน ปัญหาไม่ใช่ "AI เขียนถูกไหม" แต่คือ "ถ้าผิด คุณย้อนกลับได้ไหม และคุณ review ทันหรือเปล่า" Git ตอบทั้งสองข้อ: ทุก commit คือจุด restore, ทุก branch คือ sandbox ที่ทิ้งได้, และ history คือ context ที่ AI รุ่นถัดไปอ่านเข้าใจ</p>
+        <div class="callout note"><span class="ico">💡</span><div><strong>กรอบคิดหลัก:</strong> AI คือคนเขียนโค้ดที่เร็วมากแต่ไม่จำอะไรข้ามรอบ — Git คือ "ความจำระยะยาว" และ "ปุ่ม undo" ของทั้งทีม คุณกับ AI ใช้ร่วมกัน</div></div>
+
+        <h2>2. ลูป Workflow: Spec → … → Release</h2>
+        <p>การทำงานกับ AI ที่ได้ผลไม่ใช่ "บอกให้เขียนทั้งระบบทีเดียว" แต่เป็นการเดินเป็นลูปสั้น ๆ ซ้ำ ๆ แต่ละรอบจบด้วยสถานะที่ commit ได้ เว็บ Git Mastery ที่คุณกำลังเรียนอยู่นี้ก็สร้างด้วยลูปเดียวกัน — เริ่มจาก <code>PROJECT.md</code> เป็น spec ก่อนเขียนโค้ดสักบรรทัด</p>
+
+        <svg class="diagram" viewBox="0 0 760 320" role="img" aria-label="แผนภาพวงลูป AI coding workflow: Spec, Architecture, Planning, Implementation, Review, Refactor, Release วนกลับมา">
+          <defs>
+            <marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker>
+          </defs>
+          <!-- center -->
+          <circle class="node" cx="380" cy="160" r="58"/>
+          <text class="label" x="380" y="155" text-anchor="middle" font-weight="700">AI + Git</text>
+          <text class="muted" x="380" y="175" text-anchor="middle" font-size="11">ลูปสั้น ๆ ซ้ำ ๆ</text>
+          <!-- 7 nodes around -->
+          <g>
+            <rect class="node" x="300" y="14"  width="160" height="46" rx="10"/>
+            <text class="label" x="380" y="42"  text-anchor="middle" font-weight="600">1 · Spec</text>
+          </g>
+          <g>
+            <rect class="node" x="560" y="60"  width="170" height="46" rx="10"/>
+            <text class="label" x="645" y="82"  text-anchor="middle" font-weight="600">2 · Architecture</text>
+            <text class="muted" x="645" y="97"  text-anchor="middle" font-size="10">บทที่ 1–4</text>
+          </g>
+          <g>
+            <rect class="node" x="580" y="200" width="160" height="46" rx="10"/>
+            <text class="label" x="660" y="228" text-anchor="middle" font-weight="600">3 · Planning</text>
+          </g>
+          <g>
+            <rect class="node" x="370" y="260" width="180" height="46" rx="10"/>
+            <text class="label" x="460" y="282" text-anchor="middle" font-weight="600">4 · Implementation</text>
+            <text class="muted" x="460" y="297" text-anchor="middle" font-size="10">branch + commit เล็ก</text>
+          </g>
+          <g>
+            <rect class="node" x="200" y="260" width="150" height="46" rx="10"/>
+            <text class="label" x="275" y="282" text-anchor="middle" font-weight="600">5 · Review</text>
+            <text class="muted" x="275" y="297" text-anchor="middle" font-size="10">PR · บทที่ 5–7</text>
+          </g>
+          <g>
+            <rect class="node" x="20"  y="200" width="150" height="46" rx="10"/>
+            <text class="label" x="95"  y="228" text-anchor="middle" font-weight="600">6 · Refactor</text>
+            <text class="muted" x="95"  y="243" text-anchor="middle" font-size="10">บทที่ 8–11</text>
+          </g>
+          <g>
+            <rect class="node" x="30"  y="60"  width="150" height="46" rx="10"/>
+            <text class="label" x="105" y="82"  text-anchor="middle" font-weight="600">7 · Release</text>
+            <text class="muted" x="105" y="97"  text-anchor="middle" font-size="10">tag + semver</text>
+          </g>
+          <!-- circular arrows -->
+          <path class="edge" d="M460 37 C530 40 560 55 615 60"   fill="none" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M650 106 C660 145 665 170 663 198" fill="none" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M580 240 C545 255 530 258 552 261" fill="none" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M370 285 C360 290 358 290 352 286"  fill="none" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M200 280 C160 270 130 258 150 248"  fill="none" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M95 200 C90 165 88 140 95 108"      fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar2)"/>
+          <path class="edge" d="M180 70 C240 50 270 42 298 38"      fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar2)"/>
+        </svg>
+        <p class="muted">ลูกศรสีเน้น (accent) ช่วงท้ายคือการ "วนกลับ" — Release แล้วก็กลับไปอัปเดต Spec รอบใหม่ ไม่มีจุดจบ มีแต่รอบถัดไป</p>
+
+        <h2>3. Spec-driven: PROJECT.md ก่อนเสมอ</h2>
+        <p>AI ทำงานดีที่สุดเมื่อมี "เป้าหมายเดียวที่ชัด" ก่อนให้มันเขียนโค้ด ให้เขียน spec ลงไฟล์ก่อน (เช่น <code>PROJECT.md</code>) แล้ว commit ขึ้น repo ไฟล์นี้กลายเป็น single source of truth ที่ทั้งคุณ, เพื่อนร่วมทีม, และ AI อ้างอิงตรงกัน — เมื่อ AI เริ่มหลงทาง คุณชี้กลับมาที่ spec ได้</p>
+        <pre><code><span class="tok-cmd">git</span> add PROJECT.md
+<span class="tok-cmd">git</span> commit <span class="tok-flag">-m</span> <span class="tok-out">"docs: define spec — 13 บท + tech stack (no build step)"</span>
+<span class="tok-cmt"># commit แรกของฟีเจอร์ = สัญญาว่าจะทำอะไร ไม่ใช่โค้ด</span></code></pre>
+        <div class="callout note"><span class="ico">📜</span><div>โปรเจกต์เว็บนี้เริ่มจาก <code>PROJECT.md</code> ที่ list ครบ 13 บท + design style + tech ก่อนเขียน HTML สักไฟล์ นั่นคือ spec-driven ของจริง</div></div>
+
+        <h2>4. Commit เล็ก + atomic = ของขวัญให้ AI และตัวคุณ</h2>
+        <p>"Atomic commit" คือ commit ที่ทำเรื่องเดียวจบในตัว ถ้า AI สร้างฟีเจอร์ใหญ่ ให้แตกเป็น commit ย่อย ๆ ทีละขั้น ข้อดี: (1) คุณ review ได้เป็นจุด ไม่ต้องอ่าน diff 2,000 บรรทัดรวด, (2) ถ้าขั้นไหนพัง <code>git revert</code> เฉพาะ commit นั้นได้โดยไม่ลากของดีไปด้วย, (3) <code>git log</code> ที่อ่านรู้เรื่องกลายเป็น context ให้ AI agent รอบถัดไปเข้าใจว่า "ทำไมโค้ดเป็นแบบนี้"</p>
+
+        <div class="callout tip"><span class="ico">✅</span><div><strong>เคล็ดลับ:</strong> commit เล็ก = หน่วย review ที่เล็ก = AI (และมนุษย์) review แม่นขึ้น ลองตั้งกฎ "1 commit = 1 เหตุผล" ถ้าอธิบายไม่ได้ในประโยคเดียว แปลว่ามันใหญ่ไป ควรแตก</div></div>
+
+        <p>เทียบ commit ที่ดีกับไม่ดี:</p>
+        <table>
+          <thead><tr><th></th><th>❌ Commit ก้อนใหญ่</th><th>✅ Commit เล็ก atomic</th></tr></thead>
+          <tbody>
+            <tr><td>Review</td><td>diff 1,500 บรรทัด อ่านไม่ไหว ปล่อยผ่าน</td><td>อ่านได้ทีละ 30–80 บรรทัด เห็น bug ง่าย</td></tr>
+            <tr><td>Revert</td><td>ย้อนได้ทั้งก้อน ทิ้งของดีไปด้วย</td><td><code>git revert &lt;hash&gt;</code> เฉพาะส่วนที่พัง</td></tr>
+            <tr><td>Context ให้ AI</td><td>"update stuff" — AI เดาเจตนาไม่ออก</td><td>message อธิบาย why → AI ต่อยอดถูก</td></tr>
+            <tr><td>Bisect หา bug</td><td>หาไม่เจอว่า commit ไหนทำพัง</td><td><code>git bisect</code> ชี้ commit ต้นเหตุได้</td></tr>
+          </tbody>
+        </table>
+
+        <h2>5. Branch ต่อ feature/experiment: ลองของ AI แบบทิ้งได้</h2>
+        <p>กฎเหล็กในการทำงานกับ AI: <strong>อย่าให้ AI แก้ตรงบน <code>main</code></strong> ให้เปิด branch แยกต่อทุก feature หรือทุกการทดลอง ถ้า AI ทำออกมาดี → merge เข้า main; ถ้าไม่ดี → ลบทั้ง branch ทิ้ง main ไม่เคยแปดเปื้อน นี่ทำให้คุณ "ลองของเสี่ยง" กับ AI ได้อย่างสบายใจ</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ขั้น 1 — main นิ่ง แตก branch ai/try-feature ออกมาให้ AI ลองงาน",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"spec"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"base layout"},
+               {"id":"c3","branch":"ai/try-feature","parents":["b2"],"msg":"ai: draft"}
+             ]},
+            {"head":"ai/try-feature","caption":"ขั้น 2 — AI commit เล็ก ๆ หลายก้อนบน branch (main ยังปลอดภัย)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"spec"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"base layout"},
+               {"id":"c3","branch":"ai/try-feature","parents":["b2"],"msg":"ai: draft"},
+               {"id":"d4","branch":"ai/try-feature","parents":["c3"],"msg":"ai: tests"},
+               {"id":"e5","branch":"ai/try-feature","parents":["d4"],"msg":"fix review"}
+             ]},
+            {"head":"main","caption":"ขั้น 3 — review ผ่าน → merge เข้า main (ถ้าไม่ผ่าน ก็ลบ branch ทิ้งได้เลย)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"spec"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"base layout"},
+               {"id":"c3","branch":"ai/try-feature","parents":["b2"],"msg":"ai: draft"},
+               {"id":"d4","branch":"ai/try-feature","parents":["c3"],"msg":"ai: tests"},
+               {"id":"e5","branch":"ai/try-feature","parents":["d4"],"msg":"fix review"},
+               {"id":"m6","branch":"main","parents":["b2","e5"],"msg":"merge ai/try-feature"}
+             ]}
+          ]
+          </script>
+        </div>
+        <p class="muted">กด prev/next เพื่อดูทีละขั้น ถ้า experiment ไม่เวิร์ก: <code>git branch -D ai/try-feature</code> — จบ ไม่ต้อง revert อะไรบน main เลย</p>
+
+        <h2>6. Pull Request + review (มนุษย์ + AI)</h2>
+        <p>ก่อน merge ทุกครั้งให้ผ่าน Pull Request เพื่อให้มี "ด่านตรวจ" — ทั้งคนและ AI review code ได้ บน PR คุณเห็น diff รวม, รัน CI, และ comment เป็นบรรทัดได้ การให้ AI review PR ของ AI อีกตัว (หรือ review ของมนุษย์) จับ bug ที่คนเขียนมองข้ามได้บ่อย</p>
+        <pre><code><span class="tok-cmd">git</span> switch <span class="tok-flag">-c</span> ai/try-feature
+<span class="tok-cmt"># ... AI ทำงาน, commit เล็ก ๆ ...</span>
+<span class="tok-cmd">git</span> push <span class="tok-flag">-u</span> origin ai/try-feature
+<span class="tok-cmd">gh</span> pr create <span class="tok-flag">--fill</span>          <span class="tok-cmt"># เปิด PR ให้คน + AI review ก่อน merge</span>
+<span class="tok-out">https://github.com/you/git-mastery/pull/42</span></code></pre>
+        <div class="callout tip"><span class="ico">🔍</span><div>ให้ AI ช่วย review แต่ <strong>มนุษย์เป็นคนกด merge</strong> เสมอ — AI เสนอได้ คุณตัดสินใจ นี่คือเส้นแบ่งความรับผิดชอบที่ปลอดภัยที่สุด</div></div>
+
+        <h2>7. Git เป็น safety net เมื่อ AI แก้พัง</h2>
+        <p>เมื่อ AI แก้แล้วพัง คุณมีสามทางหลัก เลือกตามสถานการณ์ (ทบทวนบทที่ 8–11 ได้):</p>
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>ทำอะไร</th><th>ใช้เมื่อ</th></tr></thead>
+          <tbody>
+            <tr><td><code>git revert &lt;hash&gt;</code></td><td>สร้าง commit ใหม่ที่ "ยกเลิก" commit เก่า (ไม่ลบประวัติ)</td><td>commit นั้น push/แชร์ไปแล้ว — ปลอดภัยสุด</td></tr>
+            <tr><td><code>git reset --hard &lt;hash&gt;</code></td><td>ย้าย branch กลับไปจุดเดิม ทิ้งงานหลังจากนั้น</td><td>งานยังอยู่ในเครื่องคุณคนเดียว ยังไม่ push</td></tr>
+            <tr><td><code>git reflog</code></td><td>ดู log ของทุกการขยับ HEAD — กู้ commit ที่ "หาย" ได้</td><td>เผลอ reset/rebase ทิ้งของสำคัญ</td></tr>
+          </tbody>
+        </table>
+        <pre><code><span class="tok-cmd">git</span> reflog                       <span class="tok-cmt"># เห็นทุกจุดที่ HEAD เคยอยู่ แม้ commit ที่ดูเหมือนหาย</span>
+<span class="tok-out">e5a1b2c HEAD@{0}: reset: moving to HEAD~3</span>
+<span class="tok-out">9f3c1a0 HEAD@{1}: commit: ai: add feature (งานที่นึกว่าหาย)</span>
+<span class="tok-cmd">git</span> reset <span class="tok-flag">--hard</span> 9f3c1a0       <span class="tok-cmt"># กู้กลับมาจาก reflog ได้</span></code></pre>
+        <div class="callout danger"><span class="ico">⚠️</span><div><code>git reset --hard</code> ทิ้งงานใน Working Directory ที่ยังไม่ commit แบบกู้ไม่ได้ ถ้า AI กำลังแก้ค้างอยู่ ให้ <code>git stash</code> หรือ commit ก่อนเสมอ บน history ที่ push แล้ว <strong>ให้ใช้ <code>revert</code> ไม่ใช่ <code>reset</code></strong></div></div>
+
+        <h2>8. Commit message ที่ดี = context ให้ AI agent</h2>
+        <p>AI agent รุ่นถัดไปไม่ได้นั่งอยู่ในหัวคุณ มันอ่าน <code>git log</code> เพื่อเข้าใจว่าโค้ดวิวัฒน์มายังไง message ที่เขียน "why" (ไม่ใช่แค่ "what") กลายเป็นเอกสารที่ AI ใช้ต่อยอดได้ทันที ลองใช้แนวทาง Conventional Commits: <code>type: subject</code></p>
+        <pre><code><span class="tok-cmt"># ❌ ไม่ดี — ไม่บอกเจตนา</span>
+<span class="tok-out">fix stuff</span>
+
+<span class="tok-cmt"># ✅ ดี — type + why ชัด AI/คนอ่านต่อได้</span>
+<span class="tok-out">fix(terminal): escape user input ก่อน render กัน XSS ใน simulator</span></code></pre>
+
+        <h2>9. .gitignore, Semantic Versioning + Tag Release</h2>
+        <p>ปิดท้ายลูปที่ Release ให้ <code>.gitignore</code> กันไฟล์ที่ไม่ควรเข้า repo (เช่น <code>node_modules/</code>, <code>.env</code>, ไฟล์ที่ AI tool สร้างชั่วคราว) แล้วใช้ <strong>Semantic Versioning</strong> (<code>MAJOR.MINOR.PATCH</code>) ติด tag ที่จุด release เพื่อให้ย้อนกลับไปเวอร์ชันที่ "ใช้งานได้จริง" ได้ทุกเมื่อ</p>
+        <pre><code><span class="tok-cmt"># .gitignore</span>
+<span class="tok-out">node_modules/
+.env
+.DS_Store
+*.log</span>
+
+<span class="tok-cmd">git</span> tag <span class="tok-flag">-a</span> v1.0.0 <span class="tok-flag">-m</span> <span class="tok-out">"release: ครบ 13 บท พร้อมใช้งาน"</span>  <span class="tok-cmt"># MAJOR.MINOR.PATCH</span>
+<span class="tok-cmd">git</span> push origin v1.0.0
+<span class="tok-cmt"># MAJOR=เปลี่ยนจนพังของเดิม · MINOR=เพิ่มฟีเจอร์ · PATCH=แก้ bug</span></code></pre>
+
+        <h2>10. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="commit เล็ก atomic ทำให้ review เป็นจุด, revert เฉพาะส่วนที่พังได้, และ message ที่ชัดกลายเป็น context ให้ AI agent ต่อยอด — ไม่เกี่ยวกับการเขียนโค้ดให้เร็วขึ้น">
+          <div class="quiz-q">Q1. ทำไม commit เล็กและ atomic ถึงสำคัญเป็นพิเศษเมื่อทำงานกับ AI?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">เพราะ Git จะ commit ได้เร็วขึ้นถ้าไฟล์เล็ก</button>
+            <button class="quiz-opt">เพราะ review/revert ได้เป็นจุด และ message เป็น context ให้ AI</button>
+            <button class="quiz-opt">เพราะ AI ห้าม commit ไฟล์ใหญ่กว่า 80 บรรทัด</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="commit ที่ push/แชร์ไปแล้วควรใช้ git revert ซึ่งสร้าง commit ใหม่มายกเลิก ไม่ลบประวัติ — ส่วน reset --hard ใช้กับงานที่ยังไม่ push เท่านั้น เพราะมันเขียนประวัติทับ">
+          <div class="quiz-q">Q2. AI commit แล้ว push ขึ้น repo ที่ทีมใช้ร่วม ปรากฏว่าโค้ดพัง ควรใช้คำสั่งไหนกู้ให้ปลอดภัยที่สุด?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt"><code>git reset --hard</code> เพื่อย้อน branch กลับ</button>
+            <button class="quiz-opt">ลบ repo แล้ว clone ใหม่</button>
+            <button class="quiz-opt"><code>git revert &lt;hash&gt;</code> เพื่อสร้าง commit ยกเลิก</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>11. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ — mini-cycle ครบลูป:</strong> จำลองการทำงานกับ AI หนึ่งรอบ ตั้งแต่ branch จนถึง merge พร้อมทดสอบ safety net ลองใน terminal จริงในเครื่องคุณ
+          <ol>
+            <li>ใน repo ฝึก: <code>git switch -c ai/experiment</code> (แตก branch ให้ AI ลองงาน — main ปลอดภัย)</li>
+            <li>commit เล็ก ๆ สองก้อน: แก้ทีละเรื่องแล้ว <code>git commit -m "..."</code> ทั้งสองครั้ง (atomic)</li>
+            <li>ทดสอบ safety net: commit ที่ "พัง" หนึ่งก้อน แล้ว <code>git revert HEAD</code> — สังเกตว่าได้ commit ใหม่ที่ยกเลิกของเดิมโดยไม่ลบประวัติ</li>
+            <li>กลับไป main: <code>git switch main</code> แล้ว <code>git merge ai/experiment</code> (review ก่อน merge ในใจ: diff อ่านรู้เรื่องไหม?)</li>
+            <li>ปิดลูป: <code>git tag -a v0.1.0 -m "first working cut"</code> แล้ว <code>git log --oneline --graph</code> ดูเส้นทางทั้งหมด</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> รู้สึกถึงจังหวะ branch → commit เล็ก → revert (safety net) → merge → tag — ลูปเดียวกับที่ใช้สร้างเว็บ Git Mastery นี้
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li>เริ่มจาก <strong>spec</strong> (เช่น <code>PROJECT.md</code>) เป็น single source of truth ก่อนปล่อย AI ลงมือ</li>
+          <li><strong>commit เล็ก atomic</strong> + branch ต่อ experiment = review/revert เป็นจุด และให้ context กับ AI</li>
+          <li><strong>Pull Request + review</strong> (คน + AI) ก่อน merge เสมอ — AI เสนอ มนุษย์ตัดสินใจ</li>
+          <li>Git คือ <strong>safety net</strong>: <code>revert</code> สำหรับของที่ push แล้ว, <code>reset</code> สำหรับงานในเครื่อง, <code>reflog</code> กู้ของที่หาย</li>
+          <li>ปิดลูปด้วย <strong>.gitignore + semver + tag</strong> แล้ววนกลับไป Spec รอบใหม่</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "13-ai-workflow" });</script>
+</body>
+</html>

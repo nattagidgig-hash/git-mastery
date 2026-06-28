@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 10 · Rebase — Git Mastery</title>
+  <meta name="description" content="git rebase: ยก commit ไป replay บนปลายใหม่เพื่อให้ประวัติเป็นเส้นตรง, interactive rebase (squash/fixup/reword), และ Golden Rule ของการ rebase" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 10</span>
+          <h1>Rebase</h1>
+          <p class="lead muted">rebase คือการ "ยก" commit ของ branch คุณออกมา แล้วนำไป replay ทับบนปลายใหม่ของอีก branch ผลลัพธ์คือประวัติเป็นเส้นตรงสะอาด ไม่มี merge commit รก ๆ แต่มาพร้อมกฎเหล็กที่ห้ามลืม</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า <strong>rebase</strong> ต่างจาก <strong>merge</strong> ยังไง และเลือกใช้ตอนไหน</li>
+              <li>ใช้ <code>git rebase main</code> เพื่อให้ feature branch อยู่บนปลายใหม่ของ main</li>
+              <li>ใช้ <strong>interactive rebase</strong> (<code>pick/reword/squash/fixup/drop/edit</code>) จัดประวัติให้สะอาด</li>
+              <li>จำ <strong>Golden Rule</strong>: อย่า rebase commit ที่ push/แชร์ออกไปแล้ว</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. rebase คืออะไร: replay บนปลายใหม่</h2>
+        <p>เวลาคุณแตก <code>feature</code> ออกมาทำงาน แล้วระหว่างนั้น <code>main</code> ก็เดินหน้าไปเรื่อย ๆ ประวัติของคุณจะ "แยกสาย" ออกจากกัน <strong>rebase</strong> แก้เรื่องนี้ด้วยการ: หา commit ที่เป็นของ <code>feature</code> เท่านั้น → เก็บไว้เป็น patch → ย้ายฐาน (base) ของ <code>feature</code> ไปไว้ที่ปลายล่าสุดของ <code>main</code> → แล้ว replay patch เหล่านั้นทับลงไปทีละอันใหม่</p>
+        <p>ผลคือประวัติออกมา <strong>เป็นเส้นตรง</strong> เหมือนคุณเพิ่งเริ่มทำ feature จาก main เวอร์ชันล่าสุดตั้งแต่แรก — ต่างจาก merge ที่ทิ้ง merge commit ไว้เป็นรอยเชื่อมสองสาย</p>
+
+        <svg class="diagram" viewBox="0 0 720 250" role="img" aria-label="แผนภาพ rebase: ยก commit ของ feature ไป replay บนปลายใหม่ของ main">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker></defs>
+          <!-- before -->
+          <text class="muted" x="20" y="28" font-size="12" font-weight="700">ก่อน rebase</text>
+          <circle class="node" cx="60"  cy="70" r="13"/>
+          <circle class="node" cx="130" cy="70" r="13"/>
+          <circle class="node" cx="200" cy="70" r="13"/>
+          <line class="edge" x1="73"  y1="70" x2="117" y2="70" stroke="var(--text-muted)" stroke-width="2"/>
+          <line class="edge" x1="143" y1="70" x2="187" y2="70" stroke="var(--text-muted)" stroke-width="2"/>
+          <text class="muted" x="225" y="74" font-size="12">main</text>
+          <circle class="node accent" cx="130" cy="140" r="13"/>
+          <circle class="node accent" cx="200" cy="140" r="13"/>
+          <line class="edge" x1="130" y1="83" x2="130" y2="127" stroke="var(--accent)" stroke-width="2"/>
+          <line class="edge" x1="143" y1="140" x2="187" y2="140" stroke="var(--accent)" stroke-width="2"/>
+          <text class="accent" x="225" y="144" font-size="12" font-weight="600">feature (แตกจาก main เก่า)</text>
+
+          <!-- after -->
+          <text class="muted" x="420" y="28" font-size="12" font-weight="700">หลัง rebase main</text>
+          <circle class="node" cx="450" cy="105" r="13"/>
+          <circle class="node" cx="510" cy="105" r="13"/>
+          <circle class="node" cx="570" cy="105" r="13"/>
+          <circle class="node accent" cx="630" cy="105" r="13"/>
+          <circle class="node accent" cx="690" cy="105" r="13"/>
+          <line class="edge" x1="463" y1="105" x2="497" y2="105" stroke="var(--text-muted)" stroke-width="2"/>
+          <line class="edge" x1="523" y1="105" x2="557" y2="105" stroke="var(--text-muted)" stroke-width="2"/>
+          <line class="edge" x1="583" y1="105" x2="617" y2="105" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="643" y1="105" x2="677" y2="105" stroke="var(--accent)" stroke-width="2"/>
+          <text class="primary" x="570" y="150" text-anchor="middle" font-size="12" font-weight="600">replay commit ของ feature ใหม่ → เส้นตรง</text>
+        </svg>
+
+        <h2>2. ใช้งานจริง: <code>git rebase main</code></h2>
+        <p>สมมติคุณอยู่บน <code>feature</code> และอยากดึงงานล่าสุดของ <code>main</code> มาเป็นฐาน ขั้นตอนคือ:</p>
+        <pre><code><span class="tok-cmd">git</span> switch feature           <span class="tok-cmt"># ยืนอยู่บน branch ที่จะถูก replay</span>
+<span class="tok-cmd">git</span> fetch origin              <span class="tok-cmt"># อัปเดต main ให้เป็นล่าสุดก่อน</span>
+<span class="tok-cmd">git</span> rebase main               <span class="tok-cmt"># ยก commit ของ feature ไปต่อปลายใหม่ของ main</span>
+
+<span class="tok-out">Successfully rebased and updated refs/heads/feature.</span></code></pre>
+        <p>ถ้ามี conflict ระหว่าง replay Git จะหยุดให้คุณแก้ทีละ commit จากนั้น:</p>
+        <pre><code><span class="tok-cmd">git</span> add &lt;ไฟล์ที่แก้แล้ว&gt;
+<span class="tok-cmd">git</span> rebase <span class="tok-flag">--continue</span>     <span class="tok-cmt"># ไปต่อ commit ถัดไป</span>
+<span class="tok-cmd">git</span> rebase <span class="tok-flag">--abort</span>        <span class="tok-cmt"># ยกเลิก กลับสภาพก่อน rebase ทั้งหมด</span>
+<span class="tok-cmd">git</span> rebase <span class="tok-flag">--skip</span>         <span class="tok-cmt"># ข้าม commit ที่กำลังมีปัญหา (ใช้ระวัง)</span></code></pre>
+
+        <h2>3. ภาพเคลื่อนไหว: feature ก่อน/หลัง rebase</h2>
+        <p>กดปุ่ม <strong>ถัดไป</strong> เพื่อดูว่า feature ที่แตกจาก main เก่า ถูกยกไป replay บนปลายใหม่ของ main จนกลายเป็นเส้นตรงได้อย่างไร</p>
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"feature","caption":"ขั้นที่ 1 — feature (f1,f2) แตกออกจาก main ที่ commit b2 ระหว่างนั้น main เดินไปถึง d4 แล้ว ประวัติแยกสองสาย",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"setup"},
+               {"id":"f1","branch":"feature","parents":["b2"],"msg":"feature: form"},
+               {"id":"f2","branch":"feature","parents":["f1"],"msg":"feature: validate"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"main: fix bug"},
+               {"id":"d4","branch":"main","parents":["c3"],"msg":"main: docs"}
+             ]},
+            {"head":"feature","caption":"ขั้นที่ 2 — หลัง git rebase main: f1,f2 ถูก replay เป็น commit ใหม่ (f1',f2') ต่อจาก d4 ประวัติกลายเป็นเส้นตรง ไม่มี merge commit",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"setup"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"main: fix bug"},
+               {"id":"d4","branch":"main","parents":["c3"],"msg":"main: docs"},
+               {"id":"f1","branch":"feature","parents":["d4"],"msg":"feature: form"},
+               {"id":"f2","branch":"feature","parents":["f1"],"msg":"feature: validate"}
+             ]}
+          ]
+          </script>
+        </div>
+        <div class="callout note"><span class="ico">💡</span><div>สังเกตว่า <code>f1'</code> และ <code>f2'</code> เป็น commit คนละตัวกับของเดิม — เนื้อหาเหมือนเดิมแต่ <strong>hash เปลี่ยน</strong> เพราะ parent เปลี่ยน นี่คือหัวใจของ Golden Rule ในหัวข้อถัดไป</div></div>
+
+        <h2>4. Interactive Rebase: จัดประวัติให้สวย</h2>
+        <p><code>git rebase -i</code> (interactive) คือเครื่องมือเรียบเรียงประวัติย้อนหลัง เปิดด้วยการระบุว่าจะแก้ย้อนกี่ commit:</p>
+        <pre><code><span class="tok-cmd">git</span> rebase <span class="tok-flag">-i</span> HEAD~3       <span class="tok-cmt"># เปิดแก้ 3 commit ล่าสุด</span></code></pre>
+        <p>Git จะเปิด editor พร้อมรายการ commit (เรียงจาก <strong>เก่าไปใหม่</strong>) ให้คุณเปลี่ยนคำสั่งหน้าแต่ละบรรทัด:</p>
+        <pre><code><span class="tok-out">pick</span>   a1b2c3  add login form
+<span class="tok-out">squash</span> d4e5f6  fix typo in form
+<span class="tok-out">squash</span> 7g8h9i  adjust spacing
+<span class="tok-cmt"># เปลี่ยน 2 บรรทัดล่างเป็น squash → รวมทั้ง 3 เป็น commit เดียว</span></code></pre>
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>ตัวย่อ</th><th>ทำอะไร</th></tr></thead>
+          <tbody>
+            <tr><td><code>pick</code></td><td><code>p</code></td><td>ใช้ commit นี้ตามเดิม (ค่าเริ่มต้น)</td></tr>
+            <tr><td><code>reword</code></td><td><code>r</code></td><td>ใช้ commit นี้ แต่ขอแก้ข้อความ message</td></tr>
+            <tr><td><code>squash</code></td><td><code>s</code></td><td>รวมเข้ากับ commit ก่อนหน้า — <strong>เก็บ message ทั้งสองมารวมกัน</strong></td></tr>
+            <tr><td><code>fixup</code></td><td><code>f</code></td><td>รวมเข้ากับ commit ก่อนหน้า แต่ <strong>ทิ้ง message ของตัวเอง</strong></td></tr>
+            <tr><td><code>drop</code></td><td><code>d</code></td><td>ทิ้ง commit นี้ไปเลย (ลบออกจากประวัติ)</td></tr>
+            <tr><td><code>edit</code></td><td><code>e</code></td><td>หยุดที่ commit นี้เพื่อแก้เนื้อหา/แยกออกเป็นหลาย commit</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div><code>squash</code> เหมาะตอนรวมหลาย commit เล็ก ๆ (เช่น "wip", "fix typo", "อีกที") ให้เป็น commit เดียวที่เล่าเรื่องครบ ก่อนเปิด Pull Request — reviewer จะอ่านง่ายขึ้นมาก</div></div>
+
+        <h2>5. ⚠️ Golden Rule</h2>
+        <div class="callout danger"><span class="ico">🚫</span><div>
+          <strong>อย่า rebase commit ที่ push หรือแชร์ออกไปแล้ว</strong><br/>
+          rebase สร้าง commit ใหม่ที่มี <strong>hash ต่างจากเดิม</strong> ถ้าคนอื่นดึง commit เก่าไปทำงานต่อแล้ว ประวัติของพวกเขาจะ "ชนกัน" กับเวอร์ชันที่คุณ rewrite — ทำให้ history แตก, merge ซ้ำซ้อน, และต้องมานั่งแก้กันยุ่งเหยิง
+        </div></div>
+        <p>กฎง่าย ๆ: rebase ได้เฉพาะ commit ที่ยังอยู่ <strong>เครื่องคุณคนเดียว</strong> (local, ยังไม่ push หรือ push ขึ้น branch ส่วนตัวที่ไม่มีใครใช้) ถ้าจำเป็นต้อง push branch ที่ rebase แล้วจริง ๆ ให้ใช้:</p>
+        <pre><code><span class="tok-cmd">git</span> push <span class="tok-flag">--force-with-lease</span>   <span class="tok-cmt"># ปลอดภัยกว่า --force: ยกเลิกถ้ามีคนอื่น push แทรกมาก่อน</span></code></pre>
+
+        <h2>6. ตาราง: merge vs rebase</h2>
+        <table>
+          <thead><tr><th>หัวข้อ</th><th><code>git merge</code></th><th><code>git rebase</code></th></tr></thead>
+          <tbody>
+            <tr><td>รูปทรงประวัติ</td><td>มีกิ่งก้าน + merge commit</td><td>เส้นตรงสะอาด</td></tr>
+            <tr><td>เก็บประวัติจริง</td><td>เก็บลำดับเหตุการณ์จริงครบ</td><td>เขียนใหม่ให้ดูเหมือนทำต่อกัน</td></tr>
+            <tr><td>hash เดิมของ commit</td><td>คงเดิม</td><td>เปลี่ยน (สร้าง commit ใหม่)</td></tr>
+            <tr><td>ปลอดภัยกับงานที่ push แล้ว</td><td>✅ ปลอดภัย</td><td>⚠️ อันตราย (ผิด Golden Rule)</td></tr>
+            <tr><td>เหมาะกับ</td><td>รวม branch สาธารณะ, เก็บบริบท</td><td>เก็บ feature ส่วนตัวให้สะอาดก่อนรวม</td></tr>
+          </tbody>
+        </table>
+        <div class="callout note"><span class="ico">🧭</span><div>แนวทางที่ทีมส่วนใหญ่ใช้: <strong>rebase feature ส่วนตัวให้สะอาด</strong> ก่อนเปิด PR แล้วใช้ <strong>merge</strong> ตอนรวมเข้า main เพื่อเก็บร่องรอยว่า PR นี้ถูกรวมเมื่อไหร่</div></div>
+
+        <h2>7. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="rebase นำ commit ของ branch ปัจจุบันไป replay บนปลายใหม่ของอีก branch ทำให้ประวัติเป็นเส้นตรง ส่วน merge จะสร้าง merge commit เชื่อมสองสาย">
+          <div class="quiz-q">Q1. ความต่างหลักระหว่าง <code>rebase</code> กับ <code>merge</code> คืออะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">rebase สร้าง merge commit ส่วน merge ทำให้ประวัติเป็นเส้นตรง</button>
+            <button class="quiz-opt">rebase replay commit บนปลายใหม่ให้ประวัติเป็นเส้นตรง ส่วน merge เพิ่ม merge commit</button>
+            <button class="quiz-opt">ทั้งสองให้ผลเหมือนกันทุกประการ ต่างแค่ชื่อคำสั่ง</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="Golden Rule: ห้าม rebase commit ที่ push/แชร์ออกไปแล้ว เพราะ hash เปลี่ยน ทำให้ประวัติของคนอื่นที่อ้างอิง commit เดิมพัง">
+          <div class="quiz-q">Q2. ข้อใดคือ "Golden Rule" ของ rebase?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">ต้อง rebase ทุกครั้งก่อน commit</button>
+            <button class="quiz-opt">rebase ได้เฉพาะตอนอยู่บน main เท่านั้น</button>
+            <button class="quiz-opt">อย่า rebase commit ที่ push/แชร์ออกไปแล้ว</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>8. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> squash 3 commit ให้เหลือ commit เดียวที่สะอาด (ทำในเครื่องจริง บน branch ส่วนตัวเท่านั้น)
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → สร้างไฟล์ <code>app.txt</code> แล้ว commit แรกเป็นฐาน</li>
+            <li>สร้าง 3 commit ต่อกันแบบเล็ก ๆ: แก้ไฟล์แล้ว <code>git commit -m "wip"</code>, อีกครั้ง <code>"fix typo"</code>, อีกครั้ง <code>"adjust"</code></li>
+            <li>รัน <code>git log --oneline</code> ยืนยันว่ามี 3 commit นั้นจริง</li>
+            <li>รัน <code>git rebase -i HEAD~3</code> → ในรายการ ปล่อยบรรทัดบนสุดเป็น <code>pick</code> และเปลี่ยนอีก 2 บรรทัดเป็น <code>squash</code> (หรือ <code>fixup</code> ถ้าไม่อยากเก็บ message)</li>
+            <li>บันทึก editor → ถ้าใช้ <code>squash</code> Git จะให้แก้ message รวม พิมพ์ข้อความที่เล่าเรื่องครบแล้วบันทึก</li>
+            <li><code>git log --oneline</code> อีกครั้ง — ยืนยันว่าเหลือ commit เดียว และสังเกตว่า hash เปลี่ยนจากเดิม</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นว่า interactive rebase เปลี่ยน 3 commit รก ๆ ให้เหลือ 1 commit สวย ๆ ได้ และเข้าใจว่าทำไมต้องทำก่อน push
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>rebase</strong> = ยก commit ของ branch ไป replay บนปลายใหม่ของอีก branch → ประวัติ <strong>เส้นตรง</strong> ไม่มี merge commit</li>
+          <li><code>git rebase main</code> (ขณะอยู่ feature) ดึงงานล่าสุดของ main มาเป็นฐานใหม่</li>
+          <li><strong>interactive rebase</strong> (<code>-i</code>) ใช้ <code>pick/reword/squash/fixup/drop/edit</code> เรียบเรียงประวัติ — <code>squash</code> รวมหลาย commit เป็นหนึ่ง</li>
+          <li><strong>Golden Rule:</strong> อย่า rebase commit ที่ push/แชร์แล้ว เพราะ hash เปลี่ยนแล้วทำให้คนอื่นพัง</li>
+          <li>กฎทั่วไป: rebase งานส่วนตัวให้สะอาด, merge งานสาธารณะเพื่อเก็บบริบท</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "10-rebase" });</script>
+</body>
+</html>

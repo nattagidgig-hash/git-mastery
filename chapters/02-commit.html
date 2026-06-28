@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 2 · Commit — Git Mastery</title>
+  <meta name="description" content="บันทึก snapshot ด้วย commit: git add (ทีละไฟล์ / . / -p), git commit -m, วงจร untracked→staged→committed→modified, git diff vs --staged, การเขียน commit message ที่ดี, atomic commit และ git commit --amend" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 2</span>
+          <h1>Commit</h1>
+          <p class="lead muted">commit คือการกด "ถ่ายภาพ" โปรเจกต์แล้วบันทึกถาวร แต่ก่อนถ่าย คุณต้องจัดฉากก่อนด้วย <code>git add</code> บทนี้จะปูวงจรไฟล์ตั้งแต่ untracked จนถึง committed และสอนเขียน commit ที่ดีที่อนาคต(และทีม)จะขอบคุณ</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>ใช้ <strong>git add</strong> แบบทีละไฟล์, ทั้งหมด (<code>.</code>) และเลือกทีละส่วน (<code>-p</code>)</li>
+              <li>เข้าใจวงจร <strong>untracked → staged → committed → modified</strong> ผ่าน <code>git status</code></li>
+              <li>แยก <strong>git diff</strong> (working vs commit ล่าสุด) ออกจาก <strong>git diff --staged</strong></li>
+              <li>เขียน <strong>commit message ที่ดี</strong> + ทำ <strong>atomic commit</strong> และแก้ commit ล่าสุดด้วย <code>--amend</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. commit คืออะไรกันแน่</h2>
+        <p>commit คือการบันทึก <strong>snapshot</strong> ของไฟล์ที่อยู่ใน Staging Area ลงไปใน repository อย่างถาวร แต่ละ commit เก็บ: snapshot ของไฟล์, ชื่อ/อีเมลผู้เขียน, เวลา, ข้อความอธิบาย (message) และ pointer ไปยัง commit ก่อนหน้า (parent) จากบทที่แล้วเรารู้ว่า Git ไม่ได้เก็บ diff แต่เก็บภาพถ่ายทั้งชุด — commit คือปุ่มชัตเตอร์นั้นเอง</p>
+        <div class="callout note"><span class="ico">💡</span><div>commit ไม่ได้บันทึก "ทุกอย่างใน working directory" แต่บันทึก <strong>เฉพาะสิ่งที่อยู่ใน staging area</strong> เท่านั้น นี่คือเหตุผลที่ต้อง <code>git add</code> ก่อนเสมอ</div></div>
+
+        <h2>2. วงจรชีวิตของไฟล์ (File Lifecycle)</h2>
+        <p>ทุกไฟล์ในสายตา Git อยู่ในสถานะใดสถานะหนึ่ง การเข้าใจการเดินทางนี้ทำให้อ่าน <code>git status</code> ออกทันที</p>
+
+        <svg class="diagram" viewBox="0 0 760 250" role="img" aria-label="แผนภาพวงจรชีวิตไฟล์ใน Git: untracked, staged, committed (tracked/unmodified), modified">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker>
+                <marker id="arA" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--accent)"/></marker></defs>
+          <rect class="node" x="20"  y="95" width="150" height="70" rx="12"/>
+          <rect class="node" x="220" y="95" width="150" height="70" rx="12"/>
+          <rect class="node" x="420" y="95" width="160" height="70" rx="12"/>
+          <rect class="node" x="610" y="95" width="130" height="70" rx="12"/>
+          <text class="label" x="95"  y="125" text-anchor="middle" font-weight="700">Untracked</text>
+          <text class="muted" x="95"  y="146" text-anchor="middle" font-size="12">ไฟล์ใหม่ Git ไม่รู้จัก</text>
+          <text class="label" x="295" y="125" text-anchor="middle" font-weight="700">Staged</text>
+          <text class="muted" x="295" y="146" text-anchor="middle" font-size="12">รอเข้า commit</text>
+          <text class="label" x="500" y="125" text-anchor="middle" font-weight="700">Committed</text>
+          <text class="muted" x="500" y="146" text-anchor="middle" font-size="12">บันทึกแล้ว (unmodified)</text>
+          <text class="label" x="675" y="125" text-anchor="middle" font-weight="700">Modified</text>
+          <text class="muted" x="675" y="146" text-anchor="middle" font-size="12">แก้ใหม่</text>
+          <line class="edge" x1="170" y1="120" x2="218" y2="120" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="370" y1="120" x2="418" y2="120" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="580" y1="120" x2="608" y2="120" stroke="var(--accent)" stroke-width="2" marker-end="url(#arA)"/>
+          <text class="primary" x="194" y="110" text-anchor="middle" font-size="12" font-weight="600">add</text>
+          <text class="primary" x="394" y="110" text-anchor="middle" font-size="12" font-weight="600">commit</text>
+          <text class="accent"  x="594" y="88"  text-anchor="middle" font-size="12" font-weight="600">แก้ไฟล์</text>
+          <path class="edge" d="M675 165 C675 215 295 215 295 167" fill="none" stroke="var(--accent)" stroke-width="2" marker-end="url(#arA)"/>
+          <text class="accent" x="485" y="232" text-anchor="middle" font-size="12" font-weight="600">git add (กลับเข้า staging อีกรอบ)</text>
+        </svg>
+
+        <table>
+          <thead><tr><th>สถานะ</th><th>หมายความว่า</th><th>git status แสดง</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Untracked</strong></td><td>ไฟล์ใหม่ที่ Git ยังไม่เคยเห็น</td><td><code>Untracked files</code></td></tr>
+            <tr><td><strong>Staged</strong></td><td>ถูก <code>add</code> แล้ว รอเข้า commit หน้า</td><td><code>Changes to be committed</code></td></tr>
+            <tr><td><strong>Committed / Unmodified</strong></td><td>บันทึกใน repo แล้วและยังไม่ถูกแก้</td><td>(ไม่แสดง — clean)</td></tr>
+            <tr><td><strong>Modified</strong></td><td>เคย commit แล้วแต่ตอนนี้แก้ใหม่ ยังไม่ stage</td><td><code>Changes not staged for commit</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2>3. git add: จัดของเข้า staging</h2>
+        <p><code>git add</code> ย้ายการเปลี่ยนแปลงจาก working directory เข้าสู่ staging area คุณควบคุมได้ว่าจะใส่อะไรเข้าไปบ้าง</p>
+        <pre><code><span class="tok-cmd">git</span> add app.js                 <span class="tok-cmt"># stage ทีละไฟล์ — แม่นยำที่สุด</span>
+<span class="tok-cmd">git</span> add src/                   <span class="tok-cmt"># stage ทั้งโฟลเดอร์</span>
+<span class="tok-cmd">git</span> add <span class="tok-flag">.</span>                       <span class="tok-cmt"># stage ทุกอย่างในโฟลเดอร์ปัจจุบันลงไป</span>
+<span class="tok-cmd">git</span> add <span class="tok-flag">-p</span>                      <span class="tok-cmt"># เลือก stage ทีละ "hunk" (ทีละส่วนในไฟล์)</span></code></pre>
+        <p><code>git add -p</code> (ย่อจาก <code>--patch</code>) จะถามคุณทีละก้อนการเปลี่ยนแปลงว่า "stage ก้อนนี้ไหม?" ตอบ <code>y</code> = ใช่, <code>n</code> = ไม่, <code>s</code> = แยกก้อนให้เล็กลง, <code>q</code> = ออก เครื่องมือนี้คือกุญแจสู่ atomic commit เพราะให้คุณแยกการแก้หลายเรื่องในไฟล์เดียวออกเป็นคนละ commit ได้</p>
+        <div class="callout warn"><span class="ico">⚠️</span><div><code>git add .</code> สะดวกแต่เสี่ยง — มันจะ stage ทุกไฟล์รวมถึงที่คุณไม่ตั้งใจ (ไฟล์ทดสอบ, log, secret) เช็ก <code>git status</code> ก่อน commit เสมอ และอย่าลืมตั้ง <code>.gitignore</code></div></div>
+
+        <h2>4. git commit: กดชัตเตอร์</h2>
+        <p>เมื่อจัด staging เสร็จ ก็บันทึกด้วย <code>git commit</code> ใส่ message ด้วย <code>-m</code> ถ้าไม่ใส่ Git จะเปิด editor ให้พิมพ์</p>
+        <pre><code><span class="tok-cmd">git</span> commit <span class="tok-flag">-m</span> <span class="tok-out">"Add login form validation"</span>
+<span class="tok-cmd">git</span> commit                       <span class="tok-cmt"># ไม่ใส่ -m จะเปิด editor ให้พิมพ์ message หลายบรรทัด</span>
+<span class="tok-cmd">git</span> commit <span class="tok-flag">-am</span> <span class="tok-out">"Fix typo"</span>      <span class="tok-cmt"># -a = add ไฟล์ที่ tracked แล้วทั้งหมดให้อัตโนมัติ (ข้าม untracked)</span></code></pre>
+        <div class="callout note"><span class="ico">📝</span><div><code>git commit -a</code> จะ stage เฉพาะไฟล์ที่ <strong>เคย tracked แล้ว</strong> เท่านั้น ไฟล์ใหม่ (untracked) จะไม่ถูกใส่ — ต้อง <code>git add</code> เองก่อน</div></div>
+
+        <h2>5. ลองเอง — Interactive Terminal</h2>
+        <p>นี่คือ git CLI จำลอง ลองวงจรเต็ม: สร้างไฟล์ → <code>add</code> → <code>commit</code> → ดู <code>log</code> สังเกตว่า <code>git status</code> เปลี่ยนทุกขั้น</p>
+        <div data-terminal data-title="bash — วงจร add → commit → log"
+             data-script='git init|echo "console.log(1)" > app.js|git status|git add app.js|git status|git commit -m "Add app entry point"|git log --oneline'></div>
+        <div class="callout note"><span class="ico">⌨️</span><div>ลองต่อ: <code>echo "console.log(2)" &gt; app.js</code> แล้ว <code>git diff</code> เพื่อดูความต่าง จากนั้น <code>git add app.js</code> แล้ว <code>git diff --staged</code> — สังเกตว่าผลลัพธ์สองคำสั่งต่างกัน</div></div>
+
+        <h2>6. git diff vs git diff --staged</h2>
+        <p>คำสั่งสองตัวนี้ดูคล้ายแต่เปรียบเทียบคนละคู่ ใช้ผิดจะงงว่า "ทำไมไม่เห็นการเปลี่ยนแปลง" จุดสำคัญคือ <strong>staging area อยู่ตรงกลาง</strong> ระหว่าง working directory กับ commit ล่าสุด</p>
+
+        <svg class="diagram" viewBox="0 0 720 200" role="img" aria-label="แผนภาพเปรียบเทียบ git diff กับ git diff --staged">
+          <rect class="node" x="20"  y="70" width="180" height="70" rx="12"/>
+          <rect class="node" x="270" y="70" width="180" height="70" rx="12"/>
+          <rect class="node" x="520" y="70" width="180" height="70" rx="12"/>
+          <text class="label" x="110" y="100" text-anchor="middle" font-weight="700">Working Dir</text>
+          <text class="muted" x="110" y="122" text-anchor="middle" font-size="12">ไฟล์ที่แก้อยู่</text>
+          <text class="label" x="360" y="100" text-anchor="middle" font-weight="700">Staging Area</text>
+          <text class="muted" x="360" y="122" text-anchor="middle" font-size="12">ของที่ add แล้ว</text>
+          <text class="label" x="610" y="100" text-anchor="middle" font-weight="700">Last commit</text>
+          <text class="muted" x="610" y="122" text-anchor="middle" font-size="12">HEAD</text>
+          <path class="edge" d="M110 70 C110 30 360 30 360 68" fill="none" stroke="var(--primary)" stroke-width="2"/>
+          <text class="primary" x="235" y="28" text-anchor="middle" font-size="12" font-weight="700">git diff</text>
+          <path class="edge" d="M360 140 C360 180 610 180 610 142" fill="none" stroke="var(--accent)" stroke-width="2"/>
+          <text class="accent" x="485" y="195" text-anchor="middle" font-size="12" font-weight="700">git diff --staged</text>
+        </svg>
+
+        <table>
+          <thead><tr><th>คำสั่ง</th><th>เปรียบเทียบ</th><th>ตอบคำถามว่า</th></tr></thead>
+          <tbody>
+            <tr><td><code>git diff</code></td><td>Working Directory ↔ Staging Area</td><td>"แก้อะไรไปบ้างที่ยัง<strong>ไม่ได้</strong> add?"</td></tr>
+            <tr><td><code>git diff --staged</code><br><span class="muted">(= <code>--cached</code>)</span></td><td>Staging Area ↔ commit ล่าสุด</td><td>"กำลังจะ commit อะไรไป?"</td></tr>
+            <tr><td><code>git diff HEAD</code></td><td>Working Directory ↔ commit ล่าสุด</td><td>"แก้อะไรไปบ้างทั้งหมด (รวม staged + unstaged)?"</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div>เคยเจอไหม? แก้ไฟล์แล้ว <code>git add</code> ไปแล้ว พอรัน <code>git diff</code> กลับว่าง — ไม่ใช่บั๊ก! เพราะ working dir กับ staging ตรงกันแล้ว ความต่างไปโผล่ที่ <code>git diff --staged</code> แทน</div></div>
+
+        <h2>7. Commit message ที่ดี</h2>
+        <p>commit message คือจดหมายถึงตัวคุณในอนาคต (และเพื่อนร่วมทีม) สิ่งที่ทีมมืออาชีพยึดถือ:</p>
+        <ul>
+          <li><strong>บรรทัดแรก (subject) สั้น &lt; 50 ตัวอักษร</strong> — สรุปว่า commit นี้ทำอะไร ขึ้นต้นด้วยตัวพิมพ์ใหญ่ ไม่ต้องมีจุดท้ายประโยค</li>
+          <li><strong>ใช้ imperative mood</strong> (รูปคำสั่ง) เช่น "Add", "Fix", "Remove" ไม่ใช่ "Added" หรือ "Fixes" — อ่านเป็น "ถ้า apply commit นี้แล้วจะ <em>____</em>"</li>
+          <li><strong>เว้นบรรทัดว่าง</strong> แล้วตามด้วย body อธิบาย <strong>why</strong> (ทำไมถึงแก้) ไม่ใช่ <em>what</em> (โค้ดบอก what อยู่แล้ว)</li>
+        </ul>
+        <pre><code><span class="tok-cmt"># ❌ ไม่ดี</span>
+fixed stuff
+update
+asdf
+
+<span class="tok-cmt"># ✅ ดี — subject สั้น, imperative, มี body อธิบาย why</span>
+<span class="tok-out">Add rate limiting to login endpoint</span>
+
+<span class="tok-out">Brute-force attempts spiked last week. Limit to 5 tries</span>
+<span class="tok-out">per IP per minute to slow down credential stuffing.</span></code></pre>
+        <p><strong>Atomic commit:</strong> หนึ่ง commit ควรทำ <em>เรื่องเดียวจบ</em> ถ้าคุณแก้บั๊ก + เพิ่มฟีเจอร์ + จัดฟอร์แมต ในคราวเดียว ให้แยกเป็น 3 commit (ใช้ <code>git add -p</code> ช่วย) เพื่อให้ revert/review/หา bug ทีหลังง่าย ประวัติที่ดีเล่าเรื่องทีละก้าว ไม่ใช่ก้อนใหญ่ก้อนเดียว</p>
+
+        <h2>8. chain ของ commit ที่ atomic</h2>
+        <p>เมื่อแต่ละ commit ทำเรื่องเดียว ประวัติจะอ่านเป็นเรื่องราวได้ทันที — เลื่อนดู step ถัดไปได้</p>
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"เริ่มต้น: init แล้วเพิ่มหน้า login",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"Init project"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"Add login page"}
+             ]},
+            {"head":"main","caption":"แต่ละ commit ทำเรื่องเดียว (atomic) — อ่านประวัติเป็นเรื่องเล่าได้",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"Init project"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"Add login page"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"Validate email field"},
+               {"id":"d4","branch":"main","parents":["c3"],"msg":"Add rate limiting"}
+             ]}
+          ]
+          </script>
+        </div>
+
+        <h2>9. git commit --amend: แก้ commit ล่าสุด</h2>
+        <p>เพิ่ง commit ไปแล้วนึกได้ว่าพิมพ์ message ผิด หรือลืม add ไฟล์? ไม่ต้องสร้าง commit ใหม่ ใช้ <code>--amend</code> แก้ commit ล่าสุดได้เลย</p>
+        <pre><code><span class="tok-cmt"># แก้แค่ message ของ commit ล่าสุด</span>
+<span class="tok-cmd">git</span> commit <span class="tok-flag">--amend</span> <span class="tok-flag">-m</span> <span class="tok-out">"Add login form validation"</span>
+
+<span class="tok-cmt"># ลืม add ไฟล์ — stage เพิ่มก่อน แล้ว amend (--no-edit = ไม่แก้ message เดิม)</span>
+<span class="tok-cmd">git</span> add forgotten.js
+<span class="tok-cmd">git</span> commit <span class="tok-flag">--amend</span> <span class="tok-flag">--no-edit</span></code></pre>
+        <div class="callout danger"><span class="ico">🚨</span><div><strong>amend เปลี่ยน hash!</strong> <code>--amend</code> ไม่ได้ "แก้" commit เดิมจริง ๆ — มันสร้าง commit <em>ใหม่</em> มาแทนที่ ทำให้ได้ hash ใหม่ ดังนั้น <strong>ห้าม amend commit ที่ push ขึ้น remote ที่คนอื่นใช้แล้ว</strong> เพราะประวัติจะแตกกัน amend เฉพาะ commit ที่ยังอยู่ในเครื่องคุณคนเดียวเท่านั้น</div></div>
+
+        <h2>10. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="2" data-explain="git commit บันทึกเฉพาะสิ่งที่อยู่ใน staging area เท่านั้น การแก้ใน working directory ที่ยังไม่ add จะไม่ถูกบันทึก">
+          <div class="quiz-q">Q1. ถ้าแก้ไฟล์แล้ว commit ทันทีโดยยังไม่ <code>git add</code> จะเกิดอะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">การแก้ถูกบันทึกเข้า commit อัตโนมัติ</button>
+            <button class="quiz-opt">Git สร้าง branch ใหม่ให้</button>
+            <button class="quiz-opt">การแก้ที่ยังไม่ stage จะไม่เข้า commit นั้น</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="1" data-explain="git diff --staged เปรียบเทียบ staging area กับ commit ล่าสุด จึงบอกว่า 'กำลังจะ commit อะไร' ส่วน git diff เปล่า ๆ เทียบ working dir กับ staging">
+          <div class="quiz-q">Q2. อยากเห็นว่า "สิ่งที่กำลังจะ commit" มีอะไรบ้าง ควรใช้คำสั่งใด?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt"><code>git diff</code></button>
+            <button class="quiz-opt"><code>git diff --staged</code></button>
+            <button class="quiz-opt"><code>git status -s</code></button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>11. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> ฝึกควบคุม staging และแก้ commit ล่าสุด ทำใน terminal จริง พร้อมดู <code>git status</code> และ <code>git diff</code> ทุกขั้น
+          <ol>
+            <li><code>git init</code> ในโฟลเดอร์ใหม่ สร้าง <code>index.html</code> และ <code>style.css</code></li>
+            <li><code>git add index.html</code> (เฉพาะไฟล์เดียว) → <code>git status</code> สังเกตว่า <code>style.css</code> ยัง untracked</li>
+            <li><code>git commit -m "Add homepage skeleton"</code> เขียน subject สั้น &lt; 50 ตัว แบบ imperative</li>
+            <li>แก้ <code>index.html</code> 1 บรรทัด → รัน <code>git diff</code> (เห็นความต่าง) → <code>git add index.html</code> → <code>git diff</code> (ว่าง!) → <code>git diff --staged</code> (เห็นความต่างกลับมา)</li>
+            <li>เผลอ commit ทั้งที่ลืม <code>style.css</code>: <code>git add style.css</code> แล้ว <code>git commit --amend --no-edit</code> → <code>git log</code> สังเกตว่า hash ของ commit ล่าสุด <em>เปลี่ยนไป</em></li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นว่าคุณเลือกได้ว่าจะ commit อะไร และแก้ commit ล่าสุดได้โดยไม่ทิ้งขยะไว้ในประวัติ
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li>commit บันทึก snapshot ของ <strong>เฉพาะสิ่งที่อยู่ใน staging area</strong> — จึงต้อง <code>git add</code> ก่อนเสมอ</li>
+          <li>ไฟล์เดินผ่านวงจร <strong>untracked → staged → committed → modified</strong> อ่านได้จาก <code>git status</code></li>
+          <li><code>git diff</code> = working vs staging, <code>git diff --staged</code> = staging vs commit ล่าสุด</li>
+          <li>เขียน message <strong>subject สั้น &lt; 50 ตัว, imperative, body อธิบาย why</strong> และทำ <strong>atomic commit</strong> (ใช้ <code>git add -p</code> ช่วยแยก)</li>
+          <li><code>git commit --amend</code> แก้ commit ล่าสุดได้ แต่ <strong>เปลี่ยน hash</strong> — ห้ามใช้กับ commit ที่ push แชร์ไปแล้ว</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "02-commit" });</script>
+</body>
+</html>

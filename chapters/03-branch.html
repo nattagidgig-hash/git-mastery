@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 3 · Branch — Git Mastery</title>
+  <meta name="description" content="แตกสายงานด้วย branch: pointer ที่เบามาก, git branch / switch / checkout, HEAD ขยับเมื่อสลับสาย และ detached HEAD" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 3</span>
+          <h1>Branch</h1>
+          <p class="lead muted">branch คือ pointer เบา ๆ ที่ชี้ไปยัง commit หนึ่ง สร้างได้ในพริบตา ทำให้คุณแตกสายงานไปลองของใหม่ได้โดยไม่กระทบสายหลัก เมื่อเข้าใจว่า branch กับ HEAD เป็นแค่ pointer คำสั่งทุกตัวจะชัดเจนทันที</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า branch คือ <strong>movable pointer</strong> ไปยัง commit (ไม่ใช่สำเนาของไฟล์)</li>
+              <li>สร้าง/ลิสต์/สลับ branch ด้วย <code>git branch</code> และ <code>git switch</code></li>
+              <li>เทียบ <code>switch</code> สมัยใหม่กับ <code>checkout</code> แบบเดิม และรู้ว่า <strong>HEAD</strong> ขยับเมื่อใด</li>
+              <li>เข้าใจ <strong>detached HEAD</strong> ว่าเกิดขึ้นเมื่อไรและอันตรายตรงไหน</li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. branch คืออะไรกันแน่</h2>
+        <p>หลายคนคิดว่า branch คือ "การก๊อปปี้โฟลเดอร์ทั้งหมดไปอีกชุด" — ไม่ใช่เลย ใน Git <strong>branch คือไฟล์เล็ก ๆ ที่เก็บ hash ของ commit หนึ่งตัว</strong> (40 ตัวอักษร) แค่นั้น เวลาคุณสร้าง branch ใหม่ Git แค่เขียน pointer อีกอันชี้ไปยัง commit ปัจจุบัน จึงเร็วและกินพื้นที่แทบเป็นศูนย์</p>
+        <p>เมื่อคุณ commit บน branch ใด pointer ของ branch นั้น <strong>เดินหน้าไปยัง commit ใหม่</strong> โดยอัตโนมัติ ส่วน branch อื่นยังอยู่ที่เดิม นี่คือหัวใจของการ "แตกสายงาน"</p>
+        <pre><code><span class="tok-cmd">cat</span> .git/refs/heads/main
+<span class="tok-out">a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0</span>   <span class="tok-cmt"># branch ก็แค่ไฟล์ที่เก็บ hash หนึ่งตัว</span></code></pre>
+        <div class="callout note"><span class="ico">💡</span><div><strong>Mental model:</strong> commit คือสายโซ่ของ snapshot ส่วน branch คือ "ป้ายชื่อ" ที่แปะอยู่บน commit หนึ่ง และเลื่อนตามทุกครั้งที่ commit ใหม่บนสายนั้น</div></div>
+
+        <h2>2. แตกสายงาน: ภาพรวม</h2>
+        <p>สมมติคุณอยู่บน <code>main</code> แล้วอยากลองทำฟีเจอร์ใหม่โดยไม่ให้สายหลักพัง คุณสร้าง branch <code>feature</code> แล้ว commit ต่อบนนั้น ผลคือสายงานแยกออกเป็นสองทาง ภาพด้านล่างกด <em>ถัดไป</em> เพื่อดูทีละขั้น</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+            {"head":"main","caption":"ขั้น 1 — เริ่มต้นบน main มี 3 commit, branch main ชี้ที่ c3",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"setup"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"home page"}
+             ]},
+            {"head":"feature","caption":"ขั้น 2 — git switch -c feature: สร้าง pointer ใหม่ชี้ที่ c3 เดียวกัน HEAD ย้ายมาที่ feature (ยังไม่มี commit ใหม่)",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"setup"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"home page"}
+             ]},
+            {"head":"feature","caption":"ขั้น 3 — commit บน feature: pointer feature เดินไป d4/e5 ส่วน main ยังอยู่ที่ c3 — สายงานแยกแล้ว",
+             "commits":[
+               {"id":"a1","branch":"main","parents":[],"msg":"init"},
+               {"id":"b2","branch":"main","parents":["a1"],"msg":"setup"},
+               {"id":"c3","branch":"main","parents":["b2"],"msg":"home page"},
+               {"id":"d4","branch":"feature","parents":["c3"],"msg":"add form"},
+               {"id":"e5","branch":"feature","parents":["d4"],"msg":"validate"}
+             ]}
+          ]
+          </script>
+        </div>
+
+        <h2>3. คำสั่งพื้นฐานของ branch</h2>
+        <p>สามสิ่งที่ทำบ่อยที่สุดคือ ลิสต์ branch, สร้าง branch, และสลับไปยัง branch</p>
+        <pre><code><span class="tok-cmd">git</span> branch                  <span class="tok-cmt"># ลิสต์ branch ทั้งหมด, * นำหน้าอันที่อยู่ตอนนี้</span>
+<span class="tok-out">* main</span>
+<span class="tok-out">  feature</span>
+
+<span class="tok-cmd">git</span> branch feature          <span class="tok-cmt"># สร้าง branch ชื่อ feature (ยังไม่สลับไป)</span>
+<span class="tok-cmd">git</span> switch feature          <span class="tok-cmt"># สลับไปยัง feature — HEAD ขยับไปที่นั่น</span>
+<span class="tok-cmd">git</span> switch <span class="tok-flag">-c</span> feature       <span class="tok-cmt"># สร้าง + สลับในคำสั่งเดียว (ทางลัดที่ใช้บ่อยสุด)</span></code></pre>
+        <div class="callout warn"><span class="ico">⚠️</span><div><code>git branch feature</code> แค่ <strong>สร้าง</strong> pointer ใหม่ แต่ <strong>ไม่สลับ</strong>ไปให้ — คุณยังยืนอยู่ที่ branch เดิม ถ้า commit ต่อก็จะลงสายเดิม ระวังสับสนตรงนี้บ่อย</div></div>
+
+        <h2>4. HEAD ขยับเมื่อ switch</h2>
+        <p><code>HEAD</code> คือ pointer ที่บอกว่า "ตอนนี้คุณยืนอยู่ที่ branch ไหน" ปกติ HEAD ไม่ได้ชี้ commit ตรง ๆ แต่ชี้ผ่าน branch อีกที (เรียกว่า symbolic ref) เมื่อคุณ <code>git switch feature</code> สิ่งที่เปลี่ยนคือ HEAD เลิกชี้ <code>main</code> หันไปชี้ <code>feature</code> แทน แล้ว Git ก็ปรับไฟล์ใน Working Directory ให้ตรงกับ commit ปลายทาง</p>
+
+        <svg class="diagram" viewBox="0 0 720 240" role="img" aria-label="แผนภาพ HEAD ชี้ผ่าน branch ไปยัง commit">
+          <defs><marker id="ar3" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker>
+          <marker id="ar3a" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--accent)"/></marker></defs>
+          <!-- commits chain -->
+          <circle class="node" cx="120" cy="170" r="26"/>
+          <circle class="node" cx="300" cy="170" r="26"/>
+          <circle class="node" cx="480" cy="170" r="26"/>
+          <text class="label" x="120" y="175" text-anchor="middle" font-size="12">c3</text>
+          <text class="label" x="300" y="175" text-anchor="middle" font-size="12">d4</text>
+          <text class="label" x="480" y="175" text-anchor="middle" font-size="12">e5</text>
+          <line class="edge" x1="274" y1="170" x2="148" y2="170" stroke="var(--text-muted)" stroke-width="2" marker-end="url(#ar3)"/>
+          <line class="edge" x1="454" y1="170" x2="328" y2="170" stroke="var(--text-muted)" stroke-width="2" marker-end="url(#ar3)"/>
+          <!-- branch pointers -->
+          <rect class="node" x="70" y="90" width="100" height="34" rx="8"/>
+          <text class="label" x="120" y="112" text-anchor="middle" font-size="12" font-weight="700">main</text>
+          <line class="edge" x1="120" y1="124" x2="120" y2="142" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar3)"/>
+          <rect class="node" x="430" y="90" width="100" height="34" rx="8"/>
+          <text class="label" x="480" y="112" text-anchor="middle" font-size="12" font-weight="700">feature</text>
+          <line class="edge" x1="480" y1="124" x2="480" y2="142" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar3)"/>
+          <!-- HEAD -->
+          <rect class="node" x="430" y="24" width="100" height="34" rx="8"/>
+          <text class="accent" x="480" y="46" text-anchor="middle" font-size="12" font-weight="700">HEAD</text>
+          <line class="edge" x1="480" y1="58" x2="480" y2="86" stroke="var(--accent)" stroke-width="2" marker-end="url(#ar3a)"/>
+          <text class="muted" x="600" y="46" text-anchor="middle" font-size="12">HEAD → feature → e5</text>
+        </svg>
+
+        <p>ลำดับการชี้คือ <code>HEAD → feature → e5</code> เมื่อคุณ <code>commit</code> ใหม่ pointer <code>feature</code> จะเลื่อนไปยัง commit ใหม่ และเพราะ HEAD ชี้ผ่าน <code>feature</code> มันจึงเลื่อนตามไปด้วย</p>
+
+        <h2>5. switch (สมัยใหม่) vs checkout (เดิม)</h2>
+        <p>เดิม Git มีคำสั่ง <code>git checkout</code> ตัวเดียวที่ทำหลายหน้าที่ปนกัน — ทั้งสลับ branch, สร้าง branch, และกู้ไฟล์ — ทำให้สับสนและเผลอทำพังได้ง่าย Git 2.23 (ปี 2019) จึงแยกออกเป็นสองคำสั่งที่ชัดเจน: <code>git switch</code> สำหรับ branch และ <code>git restore</code> สำหรับไฟล์</p>
+        <table>
+          <thead><tr><th>เป้าหมาย</th><th>แบบเดิม (checkout)</th><th>สมัยใหม่ (switch)</th></tr></thead>
+          <tbody>
+            <tr><td>สลับไปยัง branch ที่มีอยู่</td><td><code>git checkout feature</code></td><td><code>git switch feature</code></td></tr>
+            <tr><td>สร้าง + สลับ branch ใหม่</td><td><code>git checkout -b feature</code></td><td><code>git switch -c feature</code></td></tr>
+            <tr><td>กลับไป branch ก่อนหน้า</td><td><code>git checkout -</code></td><td><code>git switch -</code></td></tr>
+            <tr><td>กู้ไฟล์ในโฟลเดอร์</td><td><code>git checkout -- file</code></td><td><code>git restore file</code></td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div>ทั้งสองยังใช้ได้ปกติ แต่สำหรับงานเกี่ยวกับ branch แนะนำ <code>switch</code> เพราะตั้งใจทำเรื่องเดียวคือสลับสาย ลดโอกาสเผลอไปแตะไฟล์ <code>checkout</code> ยังเหมาะกับงานขั้นสูงบางอย่าง (เช่น checkout commit hash ตรง ๆ)</div></div>
+
+        <h2>6. Detached HEAD: เมื่อ HEAD ชี้ commit ตรง ๆ</h2>
+        <p>ปกติ HEAD ชี้ผ่าน branch แต่ถ้าคุณ <code>git checkout &lt;commit-hash&gt;</code> หรือ <code>git switch --detach &lt;hash&gt;</code> HEAD จะ <strong>ชี้ที่ commit นั้นโดยตรง ไม่ผ่าน branch ใด ๆ</strong> สถานะนี้เรียก <em>detached HEAD</em> มีไว้เพื่อ "ดู" หรือทดลองบน commit เก่า</p>
+        <pre><code><span class="tok-cmd">git</span> checkout a1b2c3d         <span class="tok-cmt"># ไปยืนบน commit เก่าโดยตรง</span>
+<span class="tok-out">You are in 'detached HEAD' state. ...</span></code></pre>
+        <div class="callout danger"><span class="ico">🚨</span><div><strong>อันตราย:</strong> ถ้าคุณ commit ในสถานะ detached HEAD แล้วสลับ branch ออกไปโดยไม่ตั้งชื่อ branch ให้ commit เหล่านั้น มันจะ "ลอย" ไม่มี pointer ชี้ และอาจถูกลบทิ้งตอน garbage collection ทางออก: ก่อนออก ให้ <code>git switch -c &lt;ชื่อใหม่&gt;</code> เพื่อปักหมุดงานไว้บน branch จริง</div></div>
+        <p>วิธีออกจาก detached HEAD แบบปลอดภัย: ถ้าไม่ได้ commit อะไรก็แค่ <code>git switch main</code> กลับมา ถ้า commit ไปแล้วและอยากเก็บ ให้สร้าง branch จากตรงนั้นก่อน</p>
+
+        <h2>7. ลองเอง — Interactive Terminal</h2>
+        <p>นี่คือ git CLI จำลอง ลองวงจรแตกสายงาน: เริ่มจาก <code>main</code> → commit → สร้างและสลับไป <code>feature</code> → commit แยกสาย → ดู <code>log</code></p>
+        <div data-terminal data-title="bash — ลองแตก branch"
+             data-script='git init|echo "v1" > app.txt|git add .|git commit -m "init main"'></div>
+        <div class="callout note"><span class="ico">⌨️</span><div>ลองพิมพ์ต่อ: <code>git switch -c feature</code> → <code>echo "feature work" &gt; app.txt</code> → <code>git add .</code> → <code>git commit -m "work on feature"</code> แล้ว <code>git branch</code> และ <code>git log --oneline</code> สังเกตว่า <code>feature</code> เดินไปข้างหน้าส่วน <code>main</code> ยังอยู่ที่เดิม จากนั้น <code>git switch main</code> เพื่อกลับมา</div></div>
+
+        <h2>8. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="branch คือ pointer (ไฟล์เก็บ hash หนึ่งตัว) ที่ชี้ไปยัง commit หนึ่ง ไม่ใช่สำเนาของไฟล์ทั้งโปรเจกต์ จึงเบาและสร้างได้ทันที">
+          <div class="quiz-q">Q1. ในเชิงโครงสร้าง branch ของ Git คืออะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">สำเนาของไฟล์ทั้งโปรเจกต์อีกหนึ่งชุด</button>
+            <button class="quiz-opt">pointer เบา ๆ ที่เก็บ hash ของ commit หนึ่งตัว</button>
+            <button class="quiz-opt">โฟลเดอร์ใหม่ที่ Git สร้างขึ้นในเครื่อง</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="git branch feature เพียงสร้าง pointer ใหม่เท่านั้น ไม่ได้ย้าย HEAD ไป ต้องใช้ git switch feature (หรือ git switch -c feature เพื่อสร้างและสลับในครั้งเดียว) จึงจะย้าย HEAD">
+          <div class="quiz-q">Q2. หลังรัน <code>git branch feature</code> เพียงคำสั่งเดียว HEAD อยู่ที่ไหน?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">ย้ายไปที่ feature ทันที</button>
+            <button class="quiz-opt">กลายเป็น detached HEAD</button>
+            <button class="quiz-opt">ยังอยู่ที่ branch เดิม เพราะ branch แค่ถูกสร้าง ไม่ได้สลับไป</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>9. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> เปิด terminal จริงในเครื่องคุณ ฝึกแตกสายงานและสังเกต pointer ทุกขั้น
+          <ol>
+            <li>สร้างโฟลเดอร์ใหม่ → <code>git init</code> → สร้างไฟล์ <code>index.html</code> แล้ว <code>git add .</code> และ <code>git commit -m "init"</code></li>
+            <li><code>git branch</code> ดูว่ามี branch อะไรบ้าง (ควรมีแค่ <code>main</code>)</li>
+            <li><code>git switch -c feature/login</code> → รัน <code>git branch</code> อีกครั้ง สังเกต <code>*</code> ย้ายมาที่ <code>feature/login</code></li>
+            <li>แก้ไฟล์ → <code>git add .</code> → <code>git commit -m "add login"</code> แล้ว <code>git log --oneline --all</code> ดูว่าสองสายแยกกัน</li>
+            <li><code>git switch main</code> แล้วเปิดไฟล์ดู — เนื้อหากลับเป็นเวอร์ชันก่อนแก้ (อธิบายว่าทำไม)</li>
+            <li>ลอง <code>git switch -</code> เพื่อเด้งกลับไป <code>feature/login</code> โดยไม่ต้องพิมพ์ชื่อเต็ม</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นว่า branch แต่ละอันถือ snapshot คนละจุด และไฟล์ในโฟลเดอร์เปลี่ยนตาม HEAD ที่ขยับ
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><strong>branch = movable pointer</strong> ไปยัง commit หนึ่ง เป็นแค่ไฟล์เก็บ hash จึงเบาและสร้างได้ทันที</li>
+          <li><code>git branch</code> ลิสต์, <code>git branch &lt;name&gt;</code> สร้าง (แต่ไม่สลับ), <code>git switch &lt;name&gt;</code> สลับ, <code>git switch -c</code> สร้าง+สลับในครั้งเดียว</li>
+          <li><strong>HEAD ขยับเมื่อ switch</strong> และ commit บน branch ทำให้ pointer ของ branch (พร้อม HEAD) เดินหน้า ส่วนสายอื่นอยู่ที่เดิม</li>
+          <li><code>switch</code>/<code>restore</code> สมัยใหม่แยกหน้าที่ชัดกว่า <code>checkout</code> แบบเดิมที่ทำหลายอย่างปนกัน</li>
+          <li><strong>detached HEAD</strong> คือ HEAD ชี้ commit ตรง ๆ ไม่ผ่าน branch — ระวัง commit หาย ให้ <code>git switch -c</code> ปักหมุดก่อนออก</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "03-branch" });</script>
+</body>
+</html>

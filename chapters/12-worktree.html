@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>บทที่ 12 · Worktree — Git Mastery</title>
+  <meta name="description" content="git worktree: เปิดหลาย branch พร้อมกันจาก repo เดียวโดยไม่ต้อง stash/switch — add, list, remove, use case hotfix และข้อจำกัด" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🌿</text></svg>" />
+</head>
+<body>
+  <a class="skip-link" href="#main">ข้ามไปเนื้อหา</a>
+
+  <header class="header">
+    <button class="icon-btn menu-toggle" aria-label="เปิดเมนูบทเรียน">☰</button>
+    <a class="brand" href="../index.html" data-home>
+      <svg class="brand-mark" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="8" cy="8" r="3.2" fill="var(--accent)"/><circle cx="8" cy="24" r="3.2" fill="var(--primary)"/><circle cx="24" cy="16" r="3.2" fill="var(--primary)"/>
+        <path d="M8 11v10M8 21l13-5" stroke="var(--text-muted)" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+      Git Mastery
+    </a>
+    <div class="spacer"></div>
+    <button class="btn btn-ghost btn-sm" data-search-open aria-label="ค้นหา">🔎 <span class="kbd">Ctrl K</span></button>
+    <button class="icon-btn" data-theme-toggle aria-label="สลับโหมดมืด/สว่าง"><span data-theme-icon>🌙</span></button>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav data-nav aria-label="รายการบทเรียน"></nav>
+      <div data-progress style="margin-top:var(--s-5);padding-top:var(--s-4);border-top:1px solid var(--border)"></div>
+    </aside>
+
+    <main class="content" id="main">
+      <div class="container">
+
+        <div class="chapter-head">
+          <span class="eyebrow">บทที่ 12</span>
+          <h1>Worktree</h1>
+          <p class="lead muted">เคยอยากเปิดสอง branch พร้อมกันแบบไม่ต้อง stash ทุกครั้งไหม? <code>git worktree</code> ให้คุณกาง branch หลายตัวออกมาเป็นโฟลเดอร์แยก ที่แชร์ <code>.git</code> เดียวกัน — แก้ hotfix ด่วนได้โดยไม่ทิ้งงาน feature ที่ค้างอยู่</p>
+          <div class="objectives">
+            <strong>🎯 Learning Objectives</strong>
+            <ul>
+              <li>เข้าใจว่า worktree คือ <strong>working directory เพิ่ม</strong> ที่แชร์ <code>.git</code> เดียวกัน</li>
+              <li>ใช้ <code>git worktree add / list / remove</code> ได้คล่อง</li>
+              <li>รู้ use case จริง: hotfix ด่วน, รัน test, review PR — โดยไม่ต้อง <code>stash</code> หรือ <code>switch</code></li>
+              <li>เข้าใจ <strong>ข้อจำกัด</strong>: หนึ่ง branch checkout ได้ใน worktree เดียวเท่านั้น และต่างจาก <code>clone</code></li>
+            </ul>
+          </div>
+        </div>
+
+        <h2>1. ปัญหา: งานค้าง แต่ต้องแก้ของด่วน</h2>
+        <p>สถานการณ์คลาสสิก — คุณกำลังเขียน <code>feature/checkout</code> อยู่ครึ่งทาง ไฟล์ยังแก้ค้าง คอมไพล์ไม่ผ่าน แล้วจู่ ๆ มีบั๊ก production ต้อง hotfix บน <code>main</code> เดี๋ยวนี้ ทางเดิมคือ <code>git stash</code> → <code>git switch main</code> → แก้ → กลับมา <code>git stash pop</code> ซึ่งเสี่ยงลืม pop, conflict ตอน pop, และต้องหยุดงานเดิมทั้งหมด</p>
+        <p>worktree เสนอทางที่สะอาดกว่า: <strong>เปิด <code>main</code> เป็นอีกโฟลเดอร์ไปเลย</strong> งาน feature ของคุณยังอยู่ในโฟลเดอร์เดิมเป๊ะ ไม่ถูกแตะ ทำ hotfix ในโฟลเดอร์ใหม่เสร็จก็กลับมาทำงานต่อเหมือนไม่มีอะไรเกิดขึ้น</p>
+
+        <div class="callout note"><span class="ico">💡</span><div><strong>Mental model:</strong> หนึ่ง repo มี <code>.git</code> หนึ่งก้อน (ฐานข้อมูลประวัติ) แต่สามารถมี <strong>หลาย working directory</strong> ที่ดึง branch คนละตัวออกมากางพร้อมกัน ทุกโฟลเดอร์เห็น commit/branch ชุดเดียวกันเพราะแชร์ <code>.git</code></div></div>
+
+        <h2>2. ภาพรวม: หนึ่ง .git หลาย working directory</h2>
+        <p>ปกติ <code>git clone</code> ให้คุณ 1 working directory ผูกกับ 1 <code>.git</code> แต่ worktree ทำให้ <code>.git</code> ก้อนเดิมแตกแขนง working directory ออกไปได้หลายอัน แต่ละอัน checkout คนละ branch</p>
+
+        <svg class="diagram" viewBox="0 0 720 280" role="img" aria-label="แผนภาพ: หนึ่ง .git ตรงกลางเชื่อมไปยังหลาย working directory แต่ละอัน checkout คนละ branch">
+          <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0 0 L7 3 L0 6 z" fill="var(--primary)"/></marker></defs>
+          <!-- central .git -->
+          <circle class="node" cx="360" cy="140" r="58"/>
+          <text class="label" x="360" y="135" text-anchor="middle" font-weight="700">.git</text>
+          <text class="muted" x="360" y="156" text-anchor="middle" font-size="12">ประวัติร่วม</text>
+          <!-- worktrees -->
+          <rect class="node" x="40"  y="30"  width="190" height="74" rx="12"/>
+          <text class="label" x="135" y="60"  text-anchor="middle" font-weight="700">project/ (main)</text>
+          <text class="muted" x="135" y="82"  text-anchor="middle" font-size="12">worktree หลัก</text>
+
+          <rect class="node" x="40"  y="176" width="190" height="74" rx="12"/>
+          <text class="label" x="135" y="206" text-anchor="middle" font-weight="700">project-feature/</text>
+          <text class="muted" x="135" y="228" text-anchor="middle" font-size="12">feature/checkout</text>
+
+          <rect class="node" x="490" y="103" width="190" height="74" rx="12"/>
+          <text class="label" x="585" y="133" text-anchor="middle" font-weight="700">project-hotfix/</text>
+          <text class="muted" x="585" y="155" text-anchor="middle" font-size="12">hotfix/login</text>
+          <!-- edges -->
+          <line class="edge" x1="230" y1="67"  x2="305" y2="120" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="230" y1="213" x2="305" y2="160" stroke="var(--primary)" stroke-width="2" marker-end="url(#ar)"/>
+          <line class="edge" x1="490" y1="140" x2="420" y2="140" stroke="var(--accent)"  stroke-width="2" marker-end="url(#ar)"/>
+          <text class="primary" x="555" y="252" text-anchor="middle" font-size="12">ทุกโฟลเดอร์อ้าง .git เดียวกัน</text>
+        </svg>
+
+        <h2>3. คำสั่งหลัก: add, list, remove</h2>
+        <p>worktree มีคำสั่งย่อยไม่กี่ตัว แต่ครอบคลุมงานทั้งหมด เริ่มจากการเพิ่ม:</p>
+        <pre><code><span class="tok-cmd">git</span> worktree add ../project-hotfix hotfix/login   <span class="tok-cmt"># สร้างโฟลเดอร์ใหม่ + checkout branch ที่มีอยู่</span>
+<span class="tok-out">Preparing worktree (checking out 'hotfix/login')</span>
+<span class="tok-out">HEAD is now at a1b2c3d fix login redirect</span></code></pre>
+
+        <p>ถ้าอยากสร้าง branch ใหม่พร้อมกับ worktree เลย ใช้ <span class="tok-flag">-b</span>:</p>
+        <pre><code><span class="tok-cmd">git</span> worktree add <span class="tok-flag">-b</span> hotfix/login ../project-hotfix main   <span class="tok-cmt"># แตก branch ใหม่จาก main แล้วกางที่โฟลเดอร์ใหม่</span></code></pre>
+
+        <p>ดูว่าตอนนี้มี worktree อะไรบ้างและชี้ commit ไหน:</p>
+        <pre><code><span class="tok-cmd">git</span> worktree list
+<span class="tok-out">/home/me/project           a1b2c3d [main]</span>
+<span class="tok-out">/home/me/project-feature   9f8e7d6 [feature/checkout]</span>
+<span class="tok-out">/home/me/project-hotfix    a1b2c3d [hotfix/login]</span></code></pre>
+
+        <p>เมื่อใช้เสร็จ ลบ worktree ทิ้ง (ลบโฟลเดอร์ + ปลด register ออกจาก <code>.git</code>):</p>
+        <pre><code><span class="tok-cmd">git</span> worktree remove ../project-hotfix   <span class="tok-cmt"># ลบ worktree ที่สะอาด (ไม่มีงานค้าง)</span>
+<span class="tok-cmd">git</span> worktree prune                      <span class="tok-cmt"># เก็บกวาด record ของโฟลเดอร์ที่ถูกลบไปเองด้วยมือ</span></code></pre>
+
+        <div class="callout warn"><span class="ico">⚠️</span><div>ถ้าลบโฟลเดอร์ worktree ทิ้งด้วย <code>rm -rf</code> เฉย ๆ Git จะยังจำว่ามันมีอยู่ (เป็น stale entry) ให้รัน <code>git worktree prune</code> เพื่อล้าง record ค้าง หรือใช้ <code>git worktree remove</code> ตั้งแต่แรกจะสะอาดกว่า</div></div>
+
+        <h2>4. เดินเรื่องด้วยกราฟ: hotfix ระหว่าง feature ค้าง</h2>
+        <p>กราฟด้านล่างเล่าเรื่องจริง: <code>feature/checkout</code> กำลังดำเนินอยู่ จากนั้นเปิด worktree ใหม่บน <code>hotfix/login</code> แตกจาก <code>main</code> แก้เสร็จ merge กลับ <code>main</code> — ทั้งหมดนี้ <code>feature/checkout</code> ไม่ถูกแตะเลย กดปุ่มเพื่อไล่ทีละขั้น</p>
+
+        <div data-gitgraph>
+          <script type="application/json">
+          [
+           {"head":"feature/checkout","caption":"ขั้นที่ 1 — เริ่มงาน feature ค้างอยู่บน feature/checkout",
+            "commits":[
+              {"id":"m1","branch":"main","parents":[],"msg":"init"},
+              {"id":"m2","branch":"main","parents":["m1"],"msg":"release v1"},
+              {"id":"f1","branch":"feature/checkout","parents":["m2"],"msg":"wip cart"}
+            ]},
+           {"head":"hotfix/login","caption":"ขั้นที่ 2 — เปิด worktree ใหม่ แตก hotfix/login จาก main แก้บั๊ก (feature ไม่ถูกแตะ)",
+            "commits":[
+              {"id":"m1","branch":"main","parents":[],"msg":"init"},
+              {"id":"m2","branch":"main","parents":["m1"],"msg":"release v1"},
+              {"id":"f1","branch":"feature/checkout","parents":["m2"],"msg":"wip cart"},
+              {"id":"h1","branch":"hotfix/login","parents":["m2"],"msg":"fix login"}
+            ]},
+           {"head":"main","caption":"ขั้นที่ 3 — merge hotfix กลับ main ปล่อย v1.1 แล้วค่อยกลับไปทำ feature ต่อ",
+            "commits":[
+              {"id":"m1","branch":"main","parents":[],"msg":"init"},
+              {"id":"m2","branch":"main","parents":["m1"],"msg":"release v1"},
+              {"id":"f1","branch":"feature/checkout","parents":["m2"],"msg":"wip cart"},
+              {"id":"h1","branch":"hotfix/login","parents":["m2"],"msg":"fix login"},
+              {"id":"m3","branch":"main","parents":["m2","h1"],"msg":"merge hotfix v1.1"}
+            ]}
+          ]
+          </script>
+        </div>
+
+        <h2>5. worktree vs stash vs clone</h2>
+        <p>สามวิธีนี้ตอบโจทย์ "ทำงานหลายอย่างพร้อมกัน" คนละมุม เลือกให้ถูกงาน:</p>
+        <table>
+          <thead><tr><th>เกณฑ์</th><th>git worktree</th><th>git stash</th><th>git clone (สำเนาที่ 2)</th></tr></thead>
+          <tbody>
+            <tr><td>เปิดหลาย branch พร้อมกัน</td><td>✅ คนละโฟลเดอร์ เปิดพร้อมกันได้</td><td>❌ ทีละ branch ในโฟลเดอร์เดียว</td><td>✅ แต่เปลือง</td></tr>
+            <tr><td>แชร์ <code>.git</code> / ประวัติ</td><td>✅ แชร์ก้อนเดียว</td><td>✅ (อยู่ repo เดียว)</td><td>❌ มี <code>.git</code> แยก ต้อง fetch เอง</td></tr>
+            <tr><td>พื้นที่ดิสก์</td><td>เพิ่มเฉพาะ working files</td><td>แทบไม่เพิ่ม</td><td>เพิ่มทั้ง history + files (เปลืองสุด)</td></tr>
+            <tr><td>ต้องหยุดงานเดิม</td><td>❌ งานเดิมคงอยู่</td><td>✅ ต้อง stash ก่อน</td><td>❌ งานเดิมคงอยู่</td></tr>
+            <tr><td>เหมาะกับ</td><td>hotfix ด่วน / รัน test / review PR ขนานกัน</td><td>พักงานสั้น ๆ ชั่วคราว</td><td>แยก environment / สิทธิ์ remote ต่างกัน</td></tr>
+          </tbody>
+        </table>
+        <div class="callout tip"><span class="ico">✅</span><div>กฎหยาบ ๆ: พักงานแป๊บเดียวแล้วกลับมาเลย → <code>stash</code> | ต้องทำสองงานสลับไปมาเป็นชั่วโมง ๆ → <code>worktree</code> | ต้องการ <code>.git</code> คนละก้อนจริง ๆ → <code>clone</code></div></div>
+
+        <h2>6. ข้อจำกัดที่ต้องรู้</h2>
+        <p>worktree ทรงพลังแต่มีกติกาเฉพาะตัว ที่สำคัญที่สุด:</p>
+        <ul>
+          <li><strong>หนึ่ง branch checkout ได้ใน worktree เดียวเท่านั้น</strong> — ถ้า <code>main</code> ถูกกางอยู่ที่โฟลเดอร์หลักแล้ว คุณจะ <code>worktree add</code> โฟลเดอร์อื่นด้วย <code>main</code> ซ้ำไม่ได้ Git จะเตือนทันที (กันสองโฟลเดอร์แก้ branch เดียวกันชนกัน)</li>
+          <li>ลบโฟลเดอร์ทิ้งเองต้อง <code>prune</code> ตามเสมอ ไม่งั้นมี stale entry</li>
+          <li>ไฟล์ที่ไม่อยู่ใน Git (เช่น <code>node_modules</code>, <code>.env</code>, build cache) <strong>ไม่ถูกแชร์</strong> ระหว่าง worktree — แต่ละโฟลเดอร์ต้อง install/config เอง</li>
+        </ul>
+        <pre><code><span class="tok-cmd">git</span> worktree add ../another-main main
+<span class="tok-out">fatal: 'main' is already used by worktree at '/home/me/project'</span></code></pre>
+        <div class="callout danger"><span class="ico">🚫</span><div>อย่าเปิด IDE/editor ตัวเดียวกันคร่อมหลาย worktree แล้วคาดหวังว่ามันจะเข้าใจว่าเป็น branch ต่างกัน — เปิดแต่ละโฟลเดอร์เป็น project แยก จะลดความสับสนและ build cache ชนกัน</div></div>
+
+        <h2>7. Quiz</h2>
+        <div class="quiz" data-quiz data-answer="1" data-explain="worktree ทุกอันแชร์ .git ก้อนเดียวกัน จึงเห็น commit/branch ชุดเดียวกัน ต่างจาก clone ที่มี .git แยก">
+          <div class="quiz-q">Q1. worktree หลายอันจาก repo เดียวมีความสัมพันธ์กับ <code>.git</code> อย่างไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">แต่ละ worktree มี <code>.git</code> เป็นของตัวเองแยกกัน</button>
+            <button class="quiz-opt">ทุก worktree แชร์ <code>.git</code> ก้อนเดียวกัน</button>
+            <button class="quiz-opt">worktree ไม่เกี่ยวกับ <code>.git</code> เลย เก็บประวัติแยกในไฟล์ของตัวเอง</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+        <div class="quiz" data-quiz data-answer="2" data-explain="Git บังคับว่าหนึ่ง branch checkout ได้ใน worktree เดียว ถ้า branch ถูกกางอยู่แล้วจะ add ซ้ำไม่ได้ (fatal: already used by worktree)">
+          <div class="quiz-q">Q2. ถ้า <code>main</code> ถูก checkout อยู่ในโฟลเดอร์หลักแล้ว คุณรัน <code>git worktree add ../x main</code> จะเกิดอะไร?</div>
+          <div class="quiz-opts">
+            <button class="quiz-opt">สำเร็จ ได้สองโฟลเดอร์ที่อยู่บน <code>main</code> พร้อมกัน</button>
+            <button class="quiz-opt">Git สลับ <code>main</code> ออกจากโฟลเดอร์หลักให้อัตโนมัติ</button>
+            <button class="quiz-opt">Git ปฏิเสธ (fatal) เพราะ branch เดียว checkout ได้ใน worktree เดียว</button>
+          </div>
+          <div class="quiz-feedback" role="status"></div>
+        </div>
+
+        <h2>8. Workshop</h2>
+        <div class="callout"><span class="ico">🛠️</span><div>
+          <strong>ภารกิจ:</strong> เพิ่ม worktree สำหรับ hotfix ด่วน ขณะที่งาน feature ยังค้างอยู่ ทำในเครื่องจริงของคุณ (worktree ไม่รองรับใน simulator)
+          <ol>
+            <li>ใน repo ที่มี commit อยู่แล้ว สร้าง branch งาน: <code>git switch -c feature/x</code> แล้วแก้ไฟล์สักไฟล์ <strong>แต่ยังไม่ commit</strong> (จำลองงานค้าง)</li>
+            <li>รัน <code>git worktree add -b hotfix/y ../proj-hotfix main</code> — สังเกตว่าโฟลเดอร์ <code>../proj-hotfix</code> ถูกสร้างและอยู่บน branch <code>hotfix/y</code></li>
+            <li><code>cd ../proj-hotfix</code> แล้ว <code>git status</code> — ยืนยันว่างานค้างของ <code>feature/x</code> <em>ไม่</em> ตามมาที่นี่ (โฟลเดอร์สะอาด)</li>
+            <li>แก้บั๊กในโฟลเดอร์นี้ → <code>git add .</code> → <code>git commit -m "hotfix y"</code></li>
+            <li>กลับโฟลเดอร์เดิม <code>git worktree list</code> ดูทั้งสอง worktree แล้ว <code>git worktree remove ../proj-hotfix</code> เก็บกวาด</li>
+          </ol>
+          <strong>เป้าหมาย:</strong> เห็นว่างาน feature ที่ค้างอยู่ <em>ไม่ถูกแตะ</em> ตลอดทั้งกระบวนการ hotfix — ไม่ต้อง stash แม้แต่ครั้งเดียว
+        </div></div>
+
+        <h2>สรุป</h2>
+        <ul>
+          <li><code>git worktree add &lt;path&gt; &lt;branch&gt;</code> สร้าง <strong>working directory เพิ่ม</strong> ที่แชร์ <code>.git</code> เดียวกัน เปิดหลาย branch พร้อมกันได้โดยไม่ต้อง <code>stash</code>/<code>switch</code></li>
+          <li><code>git worktree list</code> ดูทั้งหมด, <code>git worktree remove &lt;path&gt;</code> ลบ, <code>git worktree prune</code> ล้าง record ค้าง</li>
+          <li>Use case จริง: <strong>hotfix ด่วน</strong> ขณะ feature ค้าง, รัน test branch หนึ่งระหว่างเขียนอีก branch, review PR ขนานกัน</li>
+          <li>ข้อจำกัด: <strong>หนึ่ง branch checkout ได้ใน worktree เดียว</strong> และไฟล์นอก Git (node_modules/.env) ไม่ถูกแชร์</li>
+          <li>เทียบ: <code>stash</code> = พักสั้น ๆ, <code>worktree</code> = สองงานขนานในโฟลเดอร์แยกแต่ <code>.git</code> เดียว, <code>clone</code> = <code>.git</code> คนละก้อน</li>
+        </ul>
+
+        <div class="center mt-7"><button class="btn" data-complete></button></div>
+        <nav class="pager" data-pager aria-label="ไปบทอื่น"></nav>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../assets/js/app.js"></script>
+  <script src="../assets/js/terminal.js"></script>
+  <script src="../assets/js/gitgraph.js"></script>
+  <script>GitMastery.init({ page: "chapter", slug: "12-worktree" });</script>
+</body>
+</html>
