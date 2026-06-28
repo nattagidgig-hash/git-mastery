@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<!-- ponytail: source for assets/og.png (1200x630 social preview).
+     Regenerate: chrome --headless --window-size=1200,630 --screenshot=assets/og.png assets/og-card.html -->
+<html lang="th">
+<head>
+<meta charset="UTF-8" />
+<style>
+  * { margin: 0; box-sizing: border-box; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", "Noto Sans Thai", system-ui, sans-serif;
+    color: #e6edf3;
+    background: radial-gradient(120% 120% at 80% 0%, #1d1b3a 0%, #0b0e13 55%);
+    padding: 76px 80px;
+    display: flex; flex-direction: column; justify-content: space-between;
+    position: relative;
+  }
+  .glow { position: absolute; width: 520px; height: 520px; right: -120px; top: -160px;
+    background: radial-gradient(circle, rgba(99,91,255,.45), transparent 65%); filter: blur(10px); }
+  .glow2 { position: absolute; width: 420px; height: 420px; left: -120px; bottom: -180px;
+    background: radial-gradient(circle, rgba(240,80,51,.30), transparent 65%); }
+  .brand { display: flex; align-items: center; gap: 18px; font-size: 30px; font-weight: 700; letter-spacing: -.02em; z-index: 1; }
+  h1 { font-size: 82px; line-height: 1.08; font-weight: 800; letter-spacing: -.03em; z-index: 1; }
+  .grad { background: linear-gradient(100deg, #8b86ff, #f05033); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .sub { font-size: 33px; color: #9aa6b4; margin-top: 26px; z-index: 1; }
+  .pills { display: flex; gap: 14px; margin-top: 36px; z-index: 1; }
+  .pill { font-size: 24px; font-weight: 600; padding: 10px 22px; border-radius: 999px;
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); }
+  .foot { display: flex; align-items: center; justify-content: space-between; font-size: 26px; color: #6b7785; z-index: 1; }
+  .url { color: #8b86ff; font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="glow"></div><div class="glow2"></div>
+
+  <div class="brand">
+    <svg width="46" height="46" viewBox="0 0 32 32" fill="none">
+      <circle cx="8" cy="8" r="3.4" fill="#f05033"/><circle cx="8" cy="24" r="3.4" fill="#635bff"/><circle cx="24" cy="16" r="3.4" fill="#635bff"/>
+      <path d="M8 11v10M8 21l13-5" stroke="#9aa6b4" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    Git Mastery
+  </div>
+
+  <div>
+    <h1>เรียน <span class="grad">Git</span> ระดับ<br>Professional ในยุค AI</h1>
+    <div class="sub">หลักสูตร Interactive ภาษาไทย · 13 บท · เรียนฟรี</div>
+    <div class="pills">
+      <span class="pill">⌨️ Terminal จำลอง</span>
+      <span class="pill">🔀 Git Graph</span>
+      <span class="pill">📝 Quiz ทุกบท</span>
+    </div>
+  </div>
+
+  <div class="foot">
+    <span>commit → branch → merge → rebase → worktree → AI workflow</span>
+    <span class="url">github.io/git-mastery</span>
+  </div>
+</body>
+</html>
